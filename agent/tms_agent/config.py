@@ -1,0 +1,78 @@
+"""Configuration de l'agent (variables d'environnement ou fichier `agent/.env`)."""
+
+from functools import lru_cache
+from pathlib import Path
+from typing import Literal
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+AGENT_DIR = Path(__file__).resolve().parent.parent
+ORCHESTRATOR_DIR = AGENT_DIR.parent
+
+Effort = Literal["low", "medium", "high", "xhigh", "max"]
+Severity = Literal["low", "medium", "high", "critical"]
+
+
+class AgentSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=AGENT_DIR / ".env", env_prefix="AGENT_", extra="ignore")
+
+    # --- Accès au TMS : exclusivement via le serveur MCP ---------------------------------
+    mcp_transport: Literal["stdio", "http"] = "stdio"
+    mcp_server_dir: Path = ORCHESTRATOR_DIR / "mcp_server"  # stdio : projet lancé avec `uv run tms-mcp serve`
+    mcp_url: str = "http://127.0.0.1:8002/mcp"  # http
+    mcp_call_timeout_s: float = 45.0
+
+    # --- Règles métier ----------------------------------------------------------------------
+    rules_dir: Path = ORCHESTRATOR_DIR / "rules_engine" / "rules"
+
+    # --- Boucle de surveillance ---------------------------------------------------------------
+    state_db_path: Path = AGENT_DIR / "data" / "state.db"
+    poll_interval_s: float = 10.0
+    mission_concurrency: int = 6
+    auto_resolve: bool = True  # clore les alertes d'état dont la condition a disparu, et celles des missions terminées
+
+    # --- LLM -----------------------------------------------------------------------------
+    # local     : serveur compatible OpenAI hébergé chez nous (vLLM, Ollama...) — les données restent internes
+    # anthropic : API Claude (cloud) — seulement si la politique de données l'autorise
+    llm_provider: Literal["local", "anthropic"] = "local"
+    llm_enabled: bool = True
+    llm_effort_investigation: Effort = "high"
+    llm_effort_chat: Effort = "medium"
+    llm_max_turns: int = 10  # appels au modèle par enquête / par question
+    llm_timeout_s: float = 300.0
+    llm_max_retries: int = 3
+    llm_show_thinking: bool = False  # afficher le raisonnement du modèle (mode -v)
+    llm_reprobe_every_cycles: int = 6  # LLM indisponible (serveur arrêté) : nouvel essai tous les N cycles
+
+    # Local (vLLM : scripts/run_vllm_container.sh)
+    local_base_url: str = "http://localhost:8001/v1"
+    local_model: str = "Qwen/Qwen3.5-2B"
+    local_api_key: str = "EMPTY"
+    local_max_tokens: int = 2048  # réponse ; le reste de la fenêtre sert à la conversation
+    local_temperature: float = 0.3
+    local_thinking: Literal["auto", "on", "off"] = "auto"  # auto : raisonnement si effort >= high
+    local_context_window: int | None = None  # None : lu sur /v1/models (max_model_len)
+
+    # Anthropic
+    anthropic_model: str = "claude-opus-5-5"
+    anthropic_max_tokens: int = 16000
+
+    # Profil d'outils : "compact" = sous-ensemble par mode et descriptions courtes, pour les
+    # petites fenêtres de contexte ; "auto" = compact si la fenêtre fait moins de 32k tokens.
+    toolset: Literal["auto", "full", "compact"] = "auto"
+    tool_result_max_chars: int = 24000
+    tool_result_max_chars_compact: int = 5000
+
+    # --- Enquêtes automatiques sur les nouvelles alertes ------------------------------------
+    investigate_min_severity: Severity = "medium"
+    max_investigations_per_cycle: int = 4
+    investigation_concurrency: int = 2
+    # Arrière-plan : la boucle de détection n'attend jamais le LLM (un modèle local peut mettre une
+    # minute par enquête) ; au-delà de `max_pending_investigations`, les nouvelles enquêtes sont sautées.
+    background_investigations: bool = True
+    max_pending_investigations: int = 8
+
+
+@lru_cache
+def get_settings() -> AgentSettings:
+    return AgentSettings()

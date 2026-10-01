@@ -1,0 +1,43 @@
+id: deviation_persistent
+version: 2
+enabled: true
+severity: high
+category: route_deviation
+author: équipe exploitation
+description: >
+  Alerte si le véhicule s'écarte de plus de 5 km de l'itinéraire
+  planifié pendant plus de 20 minutes. Notifie le chauffeur, l'agent
+  de suivi et le superviseur.
+when:
+  all:
+    - field: mission.status
+      operator: equals
+      value: in_progress
+    - field: deviation.current_offset_km
+      operator: greater_than
+      value: 5
+    - field: deviation.duration_minutes
+      operator: greater_than
+      value: 20
+observe:
+  - deviation.vehicle_position
+then:
+  action: emit_alert
+  alert:
+    title: "Dérive d'itinéraire"
+    message: >
+      Le véhicule {{ vehicle.plate }} de la mission {{ mission.reference }}
+      s'est écarté de {{ deviation.current_offset_km }} km depuis
+      {{ deviation.duration_minutes }} minutes.
+    deduplication_key: "deviation:{{ mission.id }}"
+    cooldown_minutes: 30
+  notify:
+    - role: driver
+      management_level: M+0
+      channel: call
+    - role: ops_agent
+      management_level: M+1
+      channel: in_app
+    - role: ops_supervisor
+      management_level: M+2
+      channel: sms

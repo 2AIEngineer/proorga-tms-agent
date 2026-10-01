@@ -1,0 +1,56 @@
+name: Règle eta_delay — retard ETA significatif
+base:
+  mission:
+    id: msn_8f3a
+    reference: MIS-2025-00412
+    vehicle_id: veh_201
+    driver_id: drv_77
+    status: in_progress
+    origin: { label: "Entrepôt Casablanca", lat: 33.5731, lon: -7.5898 }
+    destination: { label: "Client Rabat", lat: 34.0209, lon: -6.8416 }
+    planned_pickup_at: "2025-11-04T08:00:00Z"
+    planned_delivery_at: "2025-11-04T12:30:00Z"
+  vehicle:
+    id: veh_201
+    plate: AB-123-CD
+    status: moving
+    current_position: { lat: 33.75, lon: -7.25, heading: 45, speed_kmh: 78, recorded_at: "2025-11-04T10:00:00Z" }
+    last_seen_at: "2025-11-04T10:00:00Z"
+  deviation:
+    mission_id: msn_8f3a
+    current_offset_km: 0.2
+    current_offset_since: null
+    duration_minutes: 0
+    severity: low
+    computed_at: "2025-11-04T10:00:00Z"
+  eta:
+    mission_id: msn_8f3a
+    planned_delivery_at: "2025-11-04T12:30:00Z"
+    current_eta: "2025-11-04T12:25:00Z"
+    delay_minutes: -5
+  events:
+    - { id: evt_001, type: arrived_pickup, occurred_at: "2025-11-04T08:12:00Z", position: { lat: 33.5733, lon: -7.5901 }, payload: {}, source: driver_app }
+    - { id: evt_002, type: loading_completed, occurred_at: "2025-11-04T08:54:00Z", position: { lat: 33.5733, lon: -7.5901 }, payload: { weight_kg: 12400 }, source: driver_app }
+    - { id: evt_003, type: departed_pickup, occurred_at: "2025-11-04T09:30:00Z", position: { lat: 33.5735, lon: -7.5899 }, payload: {}, source: driver_app }
+
+cases:
+  - name: Retard de 52 min → alerte
+    now: "2025-11-04T10:00:00Z"
+    snapshot:
+      eta: { current_eta: "2025-11-04T13:22:00Z", delay_minutes: 52 }
+    expect:
+      triggered: [eta_delay]
+
+  - name: Retard absent — calculé depuis current_eta et planned_delivery_at (+50 min) → alerte
+    now: "2025-11-04T10:00:00Z"
+    snapshot:
+      eta: { current_eta: "2025-11-04T13:20:00Z", delay_minutes: null }
+    expect:
+      triggered: [eta_delay]
+
+  - name: Retard de 45 min pile → pas d'alerte (seuil strict)
+    now: "2025-11-04T10:00:00Z"
+    snapshot:
+      eta: { current_eta: "2025-11-04T13:15:00Z", delay_minutes: 45 }
+    expect:
+      triggered: []

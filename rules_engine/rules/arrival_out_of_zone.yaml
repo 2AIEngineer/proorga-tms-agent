@@ -1,0 +1,36 @@
+id: arrival_out_of_zone
+version: 1
+enabled: true
+severity: medium
+category: route_deviation
+author: équipe exploitation
+description: >
+  Alerte si le véhicule marque un événement d'arrivée à plus de
+  2 km du point prévu.
+when:
+  all:
+    - field: event.type
+      operator: in
+      value: [arrived_pickup, arrived_delivery]
+    - field: event.distance_to_target_km
+      operator: greater_than
+      value: 2
+observe:
+  - event.position
+  - event.occurred_at
+then:
+  action: emit_alert
+  alert:
+    title: "Arrivée hors zone prévue"
+    message: >
+      Événement {{ event.type }} enregistré à {{ event.distance_to_target_km }} km
+      du point prévu (mission {{ mission.reference }}).
+    deduplication_key: "out_of_zone:{{ event.id }}"
+    cooldown_minutes: 0
+  notify:
+    - role: ops_agent
+      management_level: M+1
+      channel: in_app
+    - role: ops_supervisor
+      management_level: M+2
+      channel: sms

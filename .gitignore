@@ -1,0 +1,16 @@
+# Environnements et caches
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Configuration locale et secrets
+.env
+.vscode/
+
+# Données produites à l'exécution (bases de l'agent, état de la boucle)
+data/
+*.db
+*.db-shm
+*.db-wal

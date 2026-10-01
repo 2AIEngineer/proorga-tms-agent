@@ -1,0 +1,40 @@
+id: immobilization_anomaly
+version: 1
+enabled: true
+severity: high
+category: immobilization
+author: équipe exploitation
+description: >
+  Alerte si aucun événement de mission n'est enregistré depuis plus
+  de 2 heures alors que le véhicule est en statut stopped.
+when:
+  all:
+    - field: mission.status
+      operator: equals
+      value: in_progress
+    - field: vehicle.status
+      operator: equals
+      value: stopped
+    - field: mission.last_event_age_minutes
+      operator: greater_than
+      value: 120
+observe:
+  - vehicle.current_position
+  - mission.last_event_type
+then:
+  action: emit_alert
+  alert:
+    title: "Immobilisation anormale"
+    message: >
+      Le véhicule {{ vehicle.plate }} (mission {{ mission.reference }}) est à
+      l'arrêt et aucun événement n'a été reçu depuis
+      {{ mission.last_event_age_minutes }} minutes.
+    deduplication_key: "immob:{{ mission.id }}"
+    cooldown_minutes: 60
+  notify:
+    - role: driver
+      management_level: M+0
+      channel: call
+    - role: ops_agent
+      management_level: M+1
+      channel: in_app

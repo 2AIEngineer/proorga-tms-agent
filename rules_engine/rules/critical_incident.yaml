@@ -1,0 +1,42 @@
+id: critical_incident
+version: 1
+enabled: true
+severity: critical
+category: safety
+author: équipe exploitation
+description: >
+  Alerte immédiate à tous les niveaux pour tout incident critique
+  (accident, incident sécurité) signalé par le chauffeur.
+when:
+  all:
+    - field: event.type
+      operator: equals
+      value: driver_message
+    - field: event.payload.severity
+      operator: equals
+      value: critical
+observe:
+  - event.payload.text
+  - event.position
+then:
+  action: emit_alert
+  alert:
+    title: "Incident critique signalé par le chauffeur"
+    message: >
+      Mission {{ mission.reference }} ({{ vehicle.plate }}) :
+      {{ event.payload.text }}
+    deduplication_key: "critical:{{ event.id }}"
+    cooldown_minutes: 0
+  notify:
+    - role: ops_agent
+      management_level: M+1
+      channel: in_app
+    - role: ops_supervisor
+      management_level: M+2
+      channel: sms
+    - role: ops_manager
+      management_level: M+3
+      channel: call
+    - role: director
+      management_level: M+4
+      channel: email

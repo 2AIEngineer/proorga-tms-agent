@@ -1,0 +1,38 @@
+[project]
+name = "tms-agent"
+version = "0.1.0"
+description = "Agent IA de suivi des missions de transport : boucle de surveillance LangGraph, moteur de règles déclaratif, enquêtes et assistant opérateur avec Claude, accès au TMS exclusivement via MCP."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=1.11",
+    "langgraph>=1.2",
+    "mcp>=2.2",
+    "openai>=1.50",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "rules-engine",
+]
+
+[tool.uv.sources]
+rules-engine = { path = "../rules_engine", editable = true }
+# Dépendance de test uniquement (tests de bout en bout en mémoire). En production, l'agent
+# lance le serveur MCP comme sous-processus (stdio) ou s'y connecte en HTTP.
+tms-mcp-server = { path = "../mcp_server", editable = true }
+
+[project.scripts]
+tms-agent = "tms_agent.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-asyncio>=0.24", "tms-mcp-server"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["tms_agent"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

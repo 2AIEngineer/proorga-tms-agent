@@ -1,0 +1,34 @@
+id: data_gap_moving
+version: 1
+enabled: true
+severity: medium
+category: data_gap
+author: équipe exploitation
+description: >
+  Alerte si le véhicule roule mais qu'aucun événement de mission
+  n'a été enregistré depuis plus de 3 heures.
+when:
+  all:
+    - field: mission.status
+      operator: equals
+      value: in_progress
+    - field: vehicle.status
+      operator: equals
+      value: moving
+    - field: mission.last_event_age_minutes
+      operator: greater_than
+      value: 180
+then:
+  action: emit_alert
+  alert:
+    title: "Absence de mise à jour"
+    message: >
+      Aucun événement reçu depuis {{ mission.last_event_age_minutes }} minutes
+      sur la mission {{ mission.reference }} alors que le véhicule
+      {{ vehicle.plate }} roule.
+    deduplication_key: "data_gap:{{ mission.id }}"
+    cooldown_minutes: 120
+  notify:
+    - role: ops_agent
+      management_level: M+1
+      channel: in_app

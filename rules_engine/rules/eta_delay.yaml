@@ -1,0 +1,36 @@
+id: eta_delay
+version: 2
+enabled: true
+severity: medium
+category: delay
+author: équipe exploitation
+description: >
+  Alerte si l'ETA recalculée dépasse l'ETA planifiée de plus de
+  45 minutes. Notifie l'agent de suivi et le manager.
+when:
+  all:
+    - field: mission.status
+      operator: equals
+      value: in_progress
+    - field: eta.delay_minutes
+      operator: greater_than
+      value: 45
+observe:
+  - eta.current_eta
+  - eta.planned_delivery_at
+then:
+  action: emit_alert
+  alert:
+    title: "Retard ETA significatif"
+    message: >
+      La mission {{ mission.reference }} ({{ vehicle.plate }}) est annoncée
+      avec {{ eta.delay_minutes }} minutes de retard à la livraison.
+    deduplication_key: "eta_delay:{{ mission.id }}"
+    cooldown_minutes: 60
+  notify:
+    - role: ops_agent
+      management_level: M+1
+      channel: in_app
+    - role: ops_manager
+      management_level: M+3
+      channel: email

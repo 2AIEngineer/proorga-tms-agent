@@ -1,0 +1,73 @@
+name: Règles sur les événements — arrivée hors zone et incident critique
+base:
+  mission:
+    id: msn_8f3a
+    reference: MIS-2025-00412
+    vehicle_id: veh_201
+    driver_id: drv_77
+    status: in_progress
+    origin: { label: "Entrepôt Casablanca", lat: 33.5731, lon: -7.5898 }
+    destination: { label: "Client Rabat", lat: 34.0209, lon: -6.8416 }
+    planned_pickup_at: "2025-11-04T08:00:00Z"
+    planned_delivery_at: "2025-11-04T12:30:00Z"
+  vehicle:
+    id: veh_201
+    plate: AB-123-CD
+    status: moving
+    current_position: { lat: 33.75, lon: -7.25, heading: 45, speed_kmh: 78, recorded_at: "2025-11-04T10:00:00Z" }
+    last_seen_at: "2025-11-04T10:00:00Z"
+  deviation:
+    mission_id: msn_8f3a
+    current_offset_km: 0.2
+    current_offset_since: null
+    duration_minutes: 0
+    severity: low
+    computed_at: "2025-11-04T10:00:00Z"
+  eta:
+    mission_id: msn_8f3a
+    planned_delivery_at: "2025-11-04T12:30:00Z"
+    current_eta: "2025-11-04T12:25:00Z"
+    delay_minutes: -5
+  events:
+    - { id: evt_001, type: arrived_pickup, occurred_at: "2025-11-04T08:12:00Z", position: { lat: 33.5733, lon: -7.5901 }, payload: {}, source: driver_app }
+    - { id: evt_002, type: loading_completed, occurred_at: "2025-11-04T08:54:00Z", position: { lat: 33.5733, lon: -7.5901 }, payload: { weight_kg: 12400 }, source: driver_app }
+    - { id: evt_003, type: departed_pickup, occurred_at: "2025-11-04T09:30:00Z", position: { lat: 33.5735, lon: -7.5899 }, payload: {}, source: driver_app }
+
+cases:
+  - name: Arrivée à la livraison à 3,5 km du point prévu → arrivée hors zone
+    now: "2025-11-04T12:20:00Z"
+    new_events:
+      - { id: evt_010, type: arrived_delivery, occurred_at: "2025-11-04T12:20:00Z", position: { lat: 34.0, lon: -6.80 }, payload: {}, source: driver_app }
+    expect:
+      triggered: [arrival_out_of_zone]
+
+  - name: Arrivée à la livraison à 200 m du point prévu → pas d'alerte
+    now: "2025-11-04T12:20:00Z"
+    new_events:
+      - { id: evt_011, type: arrived_delivery, occurred_at: "2025-11-04T12:20:00Z", position: { lat: 34.0221, lon: -6.8432 }, payload: {}, source: driver_app }
+    expect:
+      triggered: []
+
+  - name: Message chauffeur critique (accident) → incident critique
+    now: "2025-11-04T10:05:00Z"
+    new_events:
+      - { id: evt_012, type: driver_message, occurred_at: "2025-11-04T10:05:00Z", position: { lat: 33.75, lon: -7.25 }, payload: { severity: critical, category: accident, text: "Accrochage avec un véhicule léger, pas de blessé." }, source: driver_app }
+    expect:
+      triggered: [critical_incident]
+
+  - name: Message chauffeur non critique → pas d'alerte
+    now: "2025-11-04T10:05:00Z"
+    new_events:
+      - { id: evt_013, type: driver_message, occurred_at: "2025-11-04T10:05:00Z", payload: { severity: low, text: "Pause café." }, source: driver_app }
+    expect:
+      triggered: []
+
+  - name: Deux nouveaux événements dont un incident, avec une dérive en cours → les deux familles de règles
+    now: "2025-11-04T10:05:00Z"
+    snapshot:
+      deviation: { current_offset_km: 7.1, current_offset_since: "2025-11-04T09:30:00Z", duration_minutes: 35 }
+    new_events:
+      - { id: evt_014, type: loading_completed, occurred_at: "2025-11-04T10:01:00Z", payload: {}, source: driver_app }
+      - { id: evt_015, type: driver_message, occurred_at: "2025-11-04T10:05:00Z", payload: { severity: critical, text: "Malaise du chauffeur." }, source: driver_app }
+    expect:
+      triggered: [critical_incident, deviation_persistent]
