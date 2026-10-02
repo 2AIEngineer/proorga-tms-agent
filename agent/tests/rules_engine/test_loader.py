@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from rules_engine import RuleLoadError, load_rules, parse_rules
+from tms_agent.rules_engine import RuleLoadError, load_rules, parse_rules
 
-RULES_DIR = Path(__file__).parent.parent / "rules"
+RULES_DIR = Path(__file__).parent.parent.parent / "rules"
 
 VALID = """
 id: sample

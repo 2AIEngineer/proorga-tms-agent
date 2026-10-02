@@ -3,7 +3,7 @@
 import re
 from typing import Any
 
-from rules_engine.paths import MISSING, resolve
+from tms_agent.rules_engine.paths import MISSING, resolve
 
 _PLACEHOLDER = re.compile(r"\{\{\s*([a-zA-Z_][\w.]*)\s*\}\}")
 

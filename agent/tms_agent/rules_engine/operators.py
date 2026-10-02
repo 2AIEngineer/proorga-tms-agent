@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from rules_engine.paths import MISSING, resolve
+from tms_agent.rules_engine.paths import MISSING, resolve
 
 
 class OperatorValueError(ValueError):

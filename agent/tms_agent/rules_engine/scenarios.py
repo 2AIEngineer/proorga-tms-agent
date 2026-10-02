@@ -22,9 +22,9 @@ from typing import Any
 
 import yaml
 
-from rules_engine.context import build_context
-from rules_engine.engine import RuleEngine, RuleMatch
-from rules_engine.operators import to_datetime
+from tms_agent.rules_engine.context import build_context
+from tms_agent.rules_engine.engine import RuleEngine, RuleMatch
+from tms_agent.rules_engine.operators import to_datetime
 
 
 def deep_merge(base: Any, override: Any) -> Any:

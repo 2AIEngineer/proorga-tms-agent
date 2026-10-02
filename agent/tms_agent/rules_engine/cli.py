@@ -13,11 +13,11 @@ from pathlib import Path
 
 import yaml
 
-from rules_engine.context import build_context, enrich_event
-from rules_engine.engine import RuleEngine
-from rules_engine.loader import RuleLoadError, load_rules
-from rules_engine.operators import to_datetime
-from rules_engine.scenarios import run_scenarios, run_snapshot
+from tms_agent.rules_engine.context import build_context, enrich_event
+from tms_agent.rules_engine.engine import RuleEngine
+from tms_agent.rules_engine.loader import RuleLoadError, load_rules
+from tms_agent.rules_engine.operators import to_datetime
+from tms_agent.rules_engine.scenarios import run_scenarios, run_snapshot
 
 
 def _load_engine(path: str) -> RuleEngine:

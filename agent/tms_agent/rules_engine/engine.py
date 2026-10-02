@@ -10,11 +10,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from rules_engine.context import enrich_event
-from rules_engine.models import All, AnyOf, Condition, Leaf, Not, Rule
-from rules_engine.operators import EvalContext, apply
-from rules_engine.paths import MISSING, resolve
-from rules_engine.templating import render
+from tms_agent.rules_engine.context import enrich_event
+from tms_agent.rules_engine.models import All, AnyOf, Condition, Leaf, Not, Rule
+from tms_agent.rules_engine.operators import EvalContext, apply
+from tms_agent.rules_engine.paths import MISSING, resolve
+from tms_agent.rules_engine.templating import render
 
 
 @dataclass
@@ -72,7 +72,7 @@ class RuleEngine:
 
     @classmethod
     def from_path(cls, path: str | Path) -> "RuleEngine":
-        from rules_engine.loader import load_rules
+        from tms_agent.rules_engine.loader import load_rules
 
         return cls(load_rules(path))
 

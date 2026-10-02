@@ -7,21 +7,23 @@ requires-python = ">=3.11"
 dependencies = [
     "anthropic>=1.11",
     "langgraph>=1.2",
+    "langgraph-checkpoint-postgres>=2.0",
     "mcp>=2.2",
     "openai>=1.50",
+    "psycopg[binary,pool]>=3.2",
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
-    "rules-engine",
+    "pyyaml>=6.0",
 ]
 
 [tool.uv.sources]
-rules-engine = { path = "../rules_engine", editable = true }
 # Dépendance de test uniquement (tests de bout en bout en mémoire). En production, l'agent
 # lance le serveur MCP comme sous-processus (stdio) ou s'y connecte en HTTP.
 tms-mcp-server = { path = "../mcp_server", editable = true }
 
 [project.scripts]
 tms-agent = "tms_agent.cli:main"
+rules-engine = "tms_agent.rules_engine.cli:main"
 
 [dependency-groups]
 dev = ["pytest>=8", "pytest-asyncio>=0.24", "tms-mcp-server"]

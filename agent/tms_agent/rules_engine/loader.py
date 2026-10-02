@@ -5,7 +5,7 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from rules_engine.models import Rule
+from tms_agent.rules_engine.models import Rule
 
 
 class RuleLoadError(Exception):

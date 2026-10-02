@@ -109,7 +109,7 @@ async def test_offline_mode_skips_investigation(settings, tms, store):
 
 
 async def test_assistant_multi_turn_memory_and_dangling_tool_use(settings, tms, store):
-    server = create_server(ServerSettings(agent_db_path=":memory:"), connector=tms, store=store)
+    server = create_server(ServerSettings(), connector=tms, store=store)
     llm = ScriptedLLM(
         lambda m: [tool_use("get_operations_overview")],
         lambda m: [{"type": "text", "text": "1 mission en cours, aucune alerte."}],
@@ -118,12 +118,15 @@ async def test_assistant_multi_turn_memory_and_dangling_tool_use(settings, tms, 
     )
     async with McpGateway(server) as gateway:
         assistant = OperatorAssistant(settings, gateway, llm, RuleBook(settings.rules_dir))
-        first = await assistant.ask("Quelle est la situation ?")
-        assert first.text == "1 mission en cours, aucune alerte." and first.tool_calls == ["get_operations_overview"]
-        failed = await assistant.ask("Et maintenant ?")
-        assert "incomplète" in failed.text
-        third = await assistant.ask("Et maintenant ?")
-        assert third.text == "Toujours rien à signaler."
+        try:
+            first = await assistant.ask("Quelle est la situation ?")
+            assert first.text == "1 mission en cours, aucune alerte." and first.tool_calls == ["get_operations_overview"]
+            failed = await assistant.ask("Et maintenant ?")
+            assert "incomplète" in failed.text
+            third = await assistant.ask("Et maintenant ?")
+            assert third.text == "Toujours rien à signaler."
+        finally:
+            await assistant.close()
     history = llm.requests[-1]
     assert history[0]["content"] == "Quelle est la situation ?"  # mémoire de la conversation
     assert sum(1 for m in history if m["role"] == "assistant") == 2
@@ -133,7 +136,7 @@ async def test_assistant_multi_turn_memory_and_dangling_tool_use(settings, tms, 
 
 async def _toolbox_names(settings, tms, store):
     from tms_agent.tools import RULE_DRIVEN_TOOLS, build_toolbox
-    server = create_server(ServerSettings(agent_db_path=":memory:"), connector=tms, store=store)
+    server = create_server(ServerSettings(), connector=tms, store=store)
     async with McpGateway(server) as gateway:
         toolbox = await build_toolbox(gateway, RuleBook(settings.rules_dir), deny=RULE_DRIVEN_TOOLS)
         defs = toolbox.definitions()

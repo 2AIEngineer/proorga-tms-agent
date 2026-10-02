@@ -1,26 +1,58 @@
 import itertools
+import uuid
 from contextlib import asynccontextmanager
 from typing import Any
 
+import psycopg
 import pytest
-from tms_agent.config import ORCHESTRATOR_DIR, AgentSettings
+from psycopg import sql
+from tms_agent.config import AGENT_DIR, AgentSettings
 from tms_agent.graph.monitor import MonitoringAgent
 from tms_agent.llm import LlmError, ModelTurn
 from tms_agent.mcp_gateway import McpGateway
 from tms_agent.rules import RuleBook
-from tms_agent.state import AgentStateStore
 from tms_mcp.config import Settings as ServerSettings
 from tms_mcp.server import create_server
 from tms_mcp.store import AgentStore
 from tms_mcp.testing import FakeTmsConnector, make_mission
 
 
+@pytest.fixture(scope="session")
+def database() -> dict[str, Any]:
+    """PostgreSQL de `agent/.env` (POSTGRES_*). Chaque test travaille dans des schémas jetables."""
+    fields = AgentSettings().model_dump(include={"postgres_db", "postgres_user", "postgres_password",
+                                                 "postgres_host", "postgres_port"})
+    url = AgentSettings(**fields).database_url
+    try:
+        psycopg.connect(url, connect_timeout=3).close()
+    except psycopg.OperationalError as exc:
+        pytest.skip(f"PostgreSQL indisponible : {exc}")
+    return fields
+
+
 @pytest.fixture
-def settings() -> AgentSettings:
+def schemas(database):
+    """Fabrique de noms de schémas de test, supprimés en fin de test."""
+    created: list[str] = []
+
+    def make(prefix: str) -> str:
+        created.append(f"test_{prefix}_{uuid.uuid4().hex[:8]}")
+        return created[-1]
+
+    yield make
+    with psycopg.connect(AgentSettings(**database).database_url, autocommit=True) as conn:
+        for name in created:
+            conn.execute(sql.SQL("DROP SCHEMA IF EXISTS {} CASCADE").format(sql.Identifier(name)))
+
+
+@pytest.fixture
+def settings(database, schemas) -> AgentSettings:
     return AgentSettings(
         _env_file=None,
-        state_db_path=":memory:",
-        rules_dir=ORCHESTRATOR_DIR / "rules_engine" / "rules",
+        **database,
+        state_db_schema=schemas("monitor"),
+        assistant_db_schema=schemas("assistant"),
+        rules_dir=AGENT_DIR / "rules",
         llm_max_turns=6,
         investigate_min_severity="medium",
         background_investigations=False,
@@ -36,8 +68,8 @@ def tms() -> FakeTmsConnector:
 
 
 @pytest.fixture
-def store():
-    s = AgentStore(":memory:")
+def store(settings, schemas):
+    s = AgentStore(settings.database_url, schemas("agent"))
     yield s
     s.close()
 
@@ -101,13 +133,14 @@ class OfflineLLM:
 
 @asynccontextmanager
 async def running_agent(settings, tms, store, llm=None, events=None):
-    server = create_server(ServerSettings(agent_db_path=":memory:"), connector=tms, store=store)
+    server = create_server(ServerSettings(), connector=tms, store=store)
     gateway = McpGateway(server)
     sink = (lambda kind, data: events.append((kind, data))) if events is not None else None
-    agent = MonitoringAgent(settings, gateway, llm=llm or OfflineLLM(), state_store=AgentStateStore(":memory:"),
-                            rulebook=RuleBook(settings.rules_dir), on_event=sink)
+    agent = MonitoringAgent(settings, gateway, llm=llm or OfflineLLM(), rulebook=RuleBook(settings.rules_dir),
+                            on_event=sink)
     try:
         await agent.setup()
         yield agent
     finally:
+        await agent.shutdown()
         await gateway.close()

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Protocol
 
-from rules_engine.engine import RuleMatch
+from tms_agent.rules_engine.engine import RuleMatch
 
 
 class AlertHistory(Protocol):

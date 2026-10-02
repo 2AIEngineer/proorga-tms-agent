@@ -37,7 +37,11 @@ class McpUnavailable(Exception):
 
 
 def _result_text(result: Any) -> str:
-    return "\n".join(getattr(c, "text", "") for c in (getattr(result, "content", None) or []) if getattr(c, "text", None))
+    return "\n".join(
+        getattr(c, "text", "")
+        for c in (getattr(result, "content", None) or [])
+        if getattr(c, "text", None)
+    )
 
 
 class McpGateway:
@@ -57,7 +61,16 @@ class McpGateway:
         else:
             target = StdioServerParameters(
                 command="uv",
-                args=["run", "--quiet", "--directory", str(settings.mcp_server_dir), "tms-mcp", "--log-level", "WARNING", "serve"],
+                args=[
+                    "run",
+                    "--quiet",
+                    "--directory",
+                    str(settings.mcp_server_dir),
+                    "tms-mcp",
+                    "--log-level",
+                    "WARNING",
+                    "serve",
+                ],
                 env={k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"},
             )
         return cls(target, call_timeout_s=settings.mcp_call_timeout_s)
@@ -73,11 +86,17 @@ class McpGateway:
                 self._client = await stack.enter_async_context(Client(self._target))
             except Exception as exc:
                 await stack.aclose()
-                raise McpUnavailable(f"connexion au serveur MCP impossible : {exc}") from exc
+                raise McpUnavailable(
+                    f"connexion au serveur MCP impossible : {exc}"
+                ) from exc
             self._stack = stack
             self._tools = None
             info = self._client.server_info
-            log.info("Connecté au serveur MCP %s %s", getattr(info, "name", "?"), getattr(info, "version", ""))
+            log.info(
+                "Connecté au serveur MCP %s %s",
+                getattr(info, "name", "?"),
+                getattr(info, "version", ""),
+            )
 
     async def close(self) -> None:
         async with self._lock:
@@ -116,21 +135,29 @@ class McpGateway:
         for attempt in (1, 2):
             await self.connect()
             try:
-                return await asyncio.wait_for(self._client.call_tool(name, arguments or {}), timeout=self._timeout)
+                return await asyncio.wait_for(
+                    self._client.call_tool(name, arguments or {}), timeout=self._timeout
+                )
             except TimeoutError as exc:
                 if attempt == 2:
-                    raise McpUnavailable(f"{name} : pas de réponse en {self._timeout:.0f}s") from exc
+                    raise McpUnavailable(
+                        f"{name} : pas de réponse en {self._timeout:.0f}s"
+                    ) from exc
                 log.warning("Timeout MCP sur %s, reconnexion", name)
             except (McpToolError, McpUnavailable):
                 raise
             except Exception as exc:  # transport fermé, sous-processus mort...
                 if attempt == 2:
-                    raise McpUnavailable(f"{name} : {type(exc).__name__}: {exc}") from exc
+                    raise McpUnavailable(
+                        f"{name} : {type(exc).__name__}: {exc}"
+                    ) from exc
                 log.warning("Transport MCP en erreur (%s), reconnexion", exc)
             await self.reconnect()
         raise McpUnavailable(name)  # inatteignable
 
-    async def call(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def call(
+        self, name: str, arguments: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Appel d'un tool ; renvoie le contenu structuré (dict) ou lève `McpToolError`."""
         result = await self.call_raw(name, arguments)
         if getattr(result, "is_error", False):

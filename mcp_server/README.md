@@ -3,7 +3,7 @@
 Seul point d'accès de l'agent IA au TMS (Document 2 de `docs/GOAL.md`). Il expose :
 
 - **Famille A — tools TMS** (lecture seule) : missions, événements, véhicules, positions, itinéraires, écarts, ETA, chauffeurs, utilisateurs.
-- **Famille B — tools de l'orchestrateur** : alertes, notifications, appels chauffeur, journal d'audit, tous stockés dans la **base de l'agent** (SQLite). Le TMS n'est jamais modifié.
+- **Famille B — tools de l'orchestrateur** : alertes, notifications, appels chauffeur, journal d'audit, tous stockés dans la **base de l'agent** (PostgreSQL, schéma `agent`). Le TMS n'est jamais modifié.
 
 Chaque tool porte une description sémantique (intention métier + moment d'usage), un `inputSchema` documenté, un `outputSchema`, des annotations MCP (`readOnlyHint`…) et des métadonnées `_meta` (`domain`, `category`, `backend`, `read_only`, `latency_hint`, `call_frequency_hint`, `cost_hint`).
 
@@ -17,16 +17,17 @@ uv run tms-mcp serve                         # stdio (c'est ainsi que l'agent le
 uv run tms-mcp serve --transport http        # Streamable HTTP : http://127.0.0.1:8002/mcp
 uv run tms-mcp alerts [--status open]        # alertes, notifications et analyses
 uv run tms-mcp reset-db -y                   # vide la base de l'agent
-env -u PYTHONPATH uv run pytest              # tests (sans le PYTHONPATH ROS)
+env -u PYTHONPATH uv run pytest              # tests (PostgreSQL de .env, un schéma jetable par test)
 ```
 
-Configuration (variables d'environnement ou `mcp_server/.env`) :
+Configuration (variables d'environnement ou `mcp_server/.env`, voir `.env.example`) :
 
 | Variable | Défaut | Rôle |
 |---|---|---|
 | `TMS_API_URL` | `http://127.0.0.1:8000/v1` | API du TMS |
 | `TMS_TIMEOUT_S`, `TMS_MAX_RETRIES` | `10`, `3` | Timeout et réessais (réseau, 429, 5xx) |
-| `AGENT_DB_PATH` | `mcp_server/data/agent.db` | Base de l'agent |
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT` | `tms_agent_db`, `postgres`, —, `localhost`, `5432` | Base de l'agent (PostgreSQL) |
+| `AGENT_DB_SCHEMA` | `agent` | Schéma des alertes, notifications, journal et appels (créé au démarrage) |
 | `DRIVER_CALL_MIN_INTERVAL_MIN` | `15` | Délai minimal (temps TMS) entre deux appels au même chauffeur |
 | `MCP_HOST`, `MCP_PORT` | `127.0.0.1`, `8002` | Transport HTTP |
 

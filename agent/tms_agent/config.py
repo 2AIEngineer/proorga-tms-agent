@@ -4,6 +4,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+from psycopg.conninfo import make_conninfo
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 AGENT_DIR = Path(__file__).resolve().parent.parent
@@ -14,7 +16,8 @@ Severity = Literal["low", "medium", "high", "critical"]
 
 
 class AgentSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=AGENT_DIR / ".env", env_prefix="AGENT_", extra="ignore")
+    model_config = SettingsConfigDict(env_file=AGENT_DIR / ".env", env_prefix="AGENT_", extra="ignore",
+                                      populate_by_name=True)
 
     # --- Accès au TMS : exclusivement via le serveur MCP ---------------------------------
     mcp_transport: Literal["stdio", "http"] = "stdio"
@@ -23,10 +26,18 @@ class AgentSettings(BaseSettings):
     mcp_call_timeout_s: float = 45.0
 
     # --- Règles métier ----------------------------------------------------------------------
-    rules_dir: Path = ORCHESTRATOR_DIR / "rules_engine" / "rules"
+    rules_dir: Path = AGENT_DIR / "rules"
+
+    # --- Base PostgreSQL (variables POSTGRES_*, sans préfixe : partagées avec le serveur MCP) ---
+    postgres_db: str = Field("tms_agent_db", validation_alias="POSTGRES_DB")
+    postgres_user: str = Field("postgres", validation_alias="POSTGRES_USER")
+    postgres_password: str = Field("", validation_alias="POSTGRES_PASSWORD")
+    postgres_host: str = Field("localhost", validation_alias="POSTGRES_HOST")
+    postgres_port: int = Field(5432, validation_alias="POSTGRES_PORT")
+    state_db_schema: str = "monitor"  # événements traités, curseurs de la boucle
+    assistant_db_schema: str = "assistant"  # conversations de l'assistant (checkpoints LangGraph)
 
     # --- Boucle de surveillance ---------------------------------------------------------------
-    state_db_path: Path = AGENT_DIR / "data" / "state.db"
     poll_interval_s: float = 10.0
     mission_concurrency: int = 6
     auto_resolve: bool = True  # clore les alertes d'état dont la condition a disparu, et celles des missions terminées
@@ -71,6 +82,16 @@ class AgentSettings(BaseSettings):
     # minute par enquête) ; au-delà de `max_pending_investigations`, les nouvelles enquêtes sont sautées.
     background_investigations: bool = True
     max_pending_investigations: int = 8
+
+    @property
+    def database_url(self) -> str:
+        return make_conninfo(
+            dbname=self.postgres_db,
+            user=self.postgres_user,
+            password=self.postgres_password,
+            host=self.postgres_host,
+            port=self.postgres_port,
+        )
 
 
 @lru_cache

@@ -1,4 +1,4 @@
-"""Accès au moteur de règles déclaratif (projet `rules_engine`).
+"""Accès au moteur de règles déclaratif (`tms_agent.rules_engine`).
 
 - Rechargement à chaud : si un fichier de `rules/` change, les règles sont rechargées au cycle
   suivant ; une règle invalide est signalée et l'ancien jeu de règles reste actif.
@@ -10,9 +10,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from rules_engine.operators import to_datetime
-
-from rules_engine import RuleEngine, RuleLoadError, build_context, load_rules
+from tms_agent.rules_engine import RuleEngine, RuleLoadError, build_context, load_rules
+from tms_agent.rules_engine.operators import to_datetime
 
 log = logging.getLogger(__name__)
 
@@ -90,7 +89,11 @@ def snapshot_context(snapshot: dict[str, Any]) -> tuple[dict[str, Any], datetime
 
 
 def _num(v: Any, digits: int = 1) -> str:
-    return f"{v:.{digits}f}".rstrip("0").rstrip(".") if isinstance(v, (int, float)) else "?"
+    return (
+        f"{v:.{digits}f}".rstrip("0").rstrip(".")
+        if isinstance(v, (int, float))
+        else "?"
+    )
 
 
 def mission_facts(snapshot: dict[str, Any]) -> list[str]:
@@ -100,7 +103,12 @@ def mission_facts(snapshot: dict[str, Any]) -> list[str]:
     des champs proches (cap / vitesse, retard négatif = avance).
     """
     context, _ = snapshot_context(snapshot)
-    m, v, d, e = context["mission"], context.get("vehicle") or {}, context.get("deviation") or {}, context.get("eta") or {}
+    m, v, d, e = (
+        context["mission"],
+        context.get("vehicle") or {},
+        context.get("deviation") or {},
+        context.get("eta") or {},
+    )
     origin = (m.get("origin") or {}).get("label", "?")
     destination = (m.get("destination") or {}).get("label", "?")
     facts = [
@@ -108,8 +116,10 @@ def mission_facts(snapshot: dict[str, Any]) -> list[str]:
         f"Mission {m.get('reference')} ({m['id']}) : statut {m.get('status')}, {origin} → {destination}.",
     ]
     if m.get("last_event_type"):
-        facts.append(f"Dernier événement : {m['last_event_type']} il y a {_num(m.get('last_event_age_minutes'))} min "
-                     f"({m.get('event_count')} événement(s) au total).")
+        facts.append(
+            f"Dernier événement : {m['last_event_type']} il y a {_num(m.get('last_event_age_minutes'))} min "
+            f"({m.get('event_count')} événement(s) au total)."
+        )
     if v:
         position = v.get("current_position") or {}
         facts.append(
@@ -119,18 +129,34 @@ def mission_facts(snapshot: dict[str, Any]) -> list[str]:
         )
     if d:
         if d.get("current_offset_km") is None:
-            facts.append("Écart à l'itinéraire : non calculé (véhicule pas encore parti du chargement).")
+            facts.append(
+                "Écart à l'itinéraire : non calculé (véhicule pas encore parti du chargement)."
+            )
         else:
-            since = f" depuis {_num(d.get('duration_minutes'))} min" if d.get("duration_minutes") else ""
-            facts.append(f"Écart à l'itinéraire : {_num(d['current_offset_km'], 2)} km{since} (sévérité TMS : {d.get('severity')}).")
+            since = (
+                f" depuis {_num(d.get('duration_minutes'))} min"
+                if d.get("duration_minutes")
+                else ""
+            )
+            facts.append(
+                f"Écart à l'itinéraire : {_num(d['current_offset_km'], 2)} km{since} (sévérité TMS : {d.get('severity')})."
+            )
     if e and isinstance(e.get("delay_minutes"), (int, float)):
         delay = e["delay_minutes"]
-        trend = f"RETARD de {_num(delay)} min" if delay > 0 else (f"AVANCE de {_num(-delay)} min" if delay < 0 else "à l'heure")
-        facts.append(f"Livraison prévue {e.get('planned_delivery_at')}, ETA {e.get('current_eta')} : {trend}"
-                     f"{f', {_num(e.get('remaining_distance_km'))} km restants' if e.get('remaining_distance_km') is not None else ''}.")
+        trend = (
+            f"RETARD de {_num(delay)} min"
+            if delay > 0
+            else (f"AVANCE de {_num(-delay)} min" if delay < 0 else "à l'heure")
+        )
+        facts.append(
+            f"Livraison prévue {e.get('planned_delivery_at')}, ETA {e.get('current_eta')} : {trend}"
+            f"{f', {_num(e.get('remaining_distance_km'))} km restants' if e.get('remaining_distance_km') is not None else ''}."
+        )
     driver = snapshot.get("driver") or {}
     if driver:
-        facts.append(f"Chauffeur {driver.get('name')} ({driver.get('id')}), téléphone {'connu' if driver.get('phone') else 'absent'}.")
+        facts.append(
+            f"Chauffeur {driver.get('name')} ({driver.get('id')}), téléphone {'connu' if driver.get('phone') else 'absent'}."
+        )
     if snapshot.get("errors"):
         facts.append(f"Données manquantes : {', '.join(snapshot['errors'])}.")
     return facts

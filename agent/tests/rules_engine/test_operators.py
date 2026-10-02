@@ -2,8 +2,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from rules_engine.operators import EvalContext, apply
-from rules_engine.paths import MISSING
+from tms_agent.rules_engine.operators import EvalContext, apply
+from tms_agent.rules_engine.paths import MISSING
 
 NOW = datetime(2025, 11, 4, 10, 0, tzinfo=UTC)
 CTX = EvalContext({"mission": {"destination": {"lat": 34.0209, "lon": -6.8416}}}, NOW)

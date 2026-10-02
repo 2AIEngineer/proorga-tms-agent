@@ -1,7 +1,10 @@
+import uuid
 from contextlib import asynccontextmanager
 
+import psycopg
 import pytest
 from mcp import Client
+from psycopg import sql
 from tms_mcp.config import Settings
 from tms_mcp.server import create_server
 from tms_mcp.store import AgentStore
@@ -16,18 +19,32 @@ def tms():
     return fake
 
 
+@pytest.fixture(scope="session")
+def database_url() -> str:
+    """PostgreSQL de `.env` (POSTGRES_*). Chaque test travaille dans un schéma jetable."""
+    url = Settings().database_url
+    try:
+        psycopg.connect(url, connect_timeout=3).close()
+    except psycopg.OperationalError as exc:
+        pytest.skip(f"PostgreSQL indisponible : {exc}")
+    return url
+
+
 @pytest.fixture
-def store():
-    s = AgentStore(":memory:")
+def store(database_url):
+    schema = f"test_agent_{uuid.uuid4().hex[:8]}"
+    s = AgentStore(database_url, schema)
     yield s
     s.close()
+    with psycopg.connect(database_url, autocommit=True) as conn:
+        conn.execute(sql.SQL("DROP SCHEMA IF EXISTS {} CASCADE").format(sql.Identifier(schema)))
 
 
 @asynccontextmanager
 async def open_client(tms, store):
     """Client MCP en mémoire. Ouvert dans le test lui-même : une fixture async ferait entrer et sortir
     les scopes anyio du client dans deux tâches différentes."""
-    server = create_server(Settings(agent_db_path=":memory:"), connector=tms, store=store)
+    server = create_server(Settings(), connector=tms, store=store)
     async with Client(server) as c:
         yield c
 

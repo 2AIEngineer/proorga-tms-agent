@@ -1,6 +1,6 @@
 # Agent IA de suivi des missions
 
-Agent de surveillance des missions de transport. Il fait le travail d'un agent de suivi d'exploitation : il lit le TMS **uniquement via le serveur MCP**, applique les **règles métier YAML** (`rules_engine`), émet les alertes, notifie les bons niveaux de management, puis fait **enquêter un LLM** sur chaque nouvelle alerte pour produire un diagnostic exploitable. Un **assistant opérateur** répond aux questions en langage naturel.
+Agent de surveillance des missions de transport. Il fait le travail d'un agent de suivi d'exploitation : il lit le TMS **uniquement via le serveur MCP**, applique les **règles métier YAML** (`tms_agent.rules_engine`, règles dans [`rules/`](rules/README.md)), émet les alertes, notifie les bons niveaux de management, puis fait **enquêter un LLM** sur chaque nouvelle alerte pour produire un diagnostic exploitable. Un **assistant opérateur** répond aux questions en langage naturel.
 
 Le LLM est **local par défaut** (vLLM, Qwen3.5-2B en développement) : aucune donnée ne quitte l'infrastructure. Le fournisseur Anthropic (Claude, cloud) reste disponible si la politique de données l'autorise.
 
@@ -116,7 +116,7 @@ Le parser de tools dépend du modèle : `hermes` pour Qwen3, `qwen3_coder` pour 
 - **Détection indépendante du LLM** : serveur LLM arrêté, panne, quota → les alertes et notifications continuent selon les règles ; seule l'analyse est sautée. Le LLM est vérifié au démarrage, et **retesté périodiquement** s'il était injoignable.
 - **La détection n'attend jamais le LLM** : les enquêtes tournent en arrière-plan (concurrence et file bornées). Une enquête de 60 s sur un modèle local ne retarde pas la détection du cycle suivant.
 - **Les alertes naissent des règles** : `create_alert` et `notify_recipients` sont retirés des tools du LLM. `call_driver` est refusé par le serveur sans alerte ouverte high/critical, et limité à un appel par 15 min et par mission.
-- **Pas de perte d'événement** : un événement n'est marqué traité qu'une fois ses alertes enregistrées ; sinon il est repris au cycle suivant. L'état survit aux redémarrages (`data/state.db`).
+- **Pas de perte d'événement** : un événement n'est marqué traité qu'une fois ses alertes enregistrées ; sinon il est repris au cycle suivant. L'état survit aux redémarrages (PostgreSQL, schéma `monitor`).
 - **Pas de doublon** : déduplication et cooldown appliqués atomiquement par le serveur MCP, en temps TMS (accéléré) ; remise à zéro de l'horloge de simulation gérée.
 - **Pas de faux « résolu »** : une alerte d'état n'est close que si l'instantané de la mission est complet et que la règle n'est plus vérifiée.
 - **Pannes isolées** : une mission illisible, un tool en erreur ou une enquête ratée n'arrête pas le cycle. TMS ou MCP injoignable → cycle signalé, backoff exponentiel, reconnexion MCP automatique.
@@ -125,7 +125,7 @@ Le parser de tools dépend du modèle : `hermes` pour Qwen3, `qwen3_coder` pour 
 
 ## Démarrage
 
-Prérequis : TMS lancé (`docs/CONTEXT.md`), `uv`, vLLM lancé (`scripts/run_vllm_container.sh`, vérification : `scripts/run_vllm_heathy.sh`).
+Prérequis : TMS lancé (`docs/CONTEXT.md`), `uv`, PostgreSQL (base `tms_agent_db`, identifiants dans `agent/.env` et `mcp_server/.env` ; les schémas et tables sont créés au démarrage), vLLM lancé (`scripts/run_vllm_container.sh`, vérification : `scripts/run_vllm_heathy.sh`).
 
 ```bash
 cd agent
@@ -133,6 +133,7 @@ uv sync
 cp .env.example .env                         # optionnel
 
 uv run tms-agent rules                       # règles actives
+uv run rules-engine test rules/ scenarios/   # scénarios métier des règles (voir rules/README.md)
 uv run tms-agent tools                       # profil d'outils et tools vus par le LLM
 uv run tms-agent watch                       # surveillance continue (lance le serveur MCP en stdio)
 uv run tms-agent watch --interval 3 -v       # plus fréquent, avec le détail des enquêtes
@@ -144,7 +145,7 @@ uv run tms-agent report                      # rapport de situation
 uv run tms-agent --model Qwen/Qwen3-8B watch # autre modèle servi par vLLM
 uv run tms-agent --provider anthropic ask "…" # Claude (si autorisé ; ANTHROPIC_API_KEY)
 uv run tms-agent reset-state -y              # oublie les événements déjà traités
-env -u PYTHONPATH uv run pytest              # tests (LLM remplacé par un modèle scripté / serveur simulé)
+env -u PYTHONPATH uv run pytest              # tests (LLM scripté, TMS simulé, PostgreSQL : schémas jetables)
 ```
 
 Démonstration complète (depuis `ai_agent/`) :
@@ -164,6 +165,8 @@ Variables `AGENT_*` (ou `agent/.env`) — voir `.env.example`. Les principales :
 
 | Variable | Défaut | Rôle |
 |---|---|---|
+| `POSTGRES_DB` / `_USER` / `_PASSWORD` / `_HOST` / `_PORT` | `tms_agent_db` / `postgres` / — / `localhost` / `5432` | Base PostgreSQL (sans préfixe `AGENT_`, comme le serveur MCP) |
+| `AGENT_STATE_DB_SCHEMA` / `AGENT_ASSISTANT_DB_SCHEMA` | `monitor` / `assistant` | État de la boucle / conversations de l'assistant |
 | `AGENT_LLM_PROVIDER` | `local` | `local` (API compatible OpenAI) ou `anthropic` |
 | `AGENT_LOCAL_BASE_URL` | `http://localhost:8001/v1` | Serveur vLLM |
 | `AGENT_LOCAL_MODEL` | `Qwen/Qwen3.5-2B` | Modèle servi |
@@ -184,6 +187,9 @@ Variables `AGENT_*` (ou `agent/.env`) — voir `.env.example`. Les principales :
 ## Structure
 
 ```
+rules/                    règles métier YAML (rechargées à chaud)
+scenarios/                cas de test métier des règles
+examples/                 instantané d'exemple, démo du moteur contre le TMS
 tms_agent/
 ├── graph/
 │   ├── monitor.py        boucle de surveillance (LangGraph), enquêtes en arrière-plan
@@ -196,8 +202,10 @@ tms_agent/
 │   └── anthropic_client.py fournisseur Anthropic (Claude)
 ├── mcp_gateway.py        client MCP : stdio / HTTP / mémoire, reconnexion, timeouts
 ├── tools.py              tools MCP dynamiques, profil compact, tools locaux, validation
-├── rules.py              moteur de règles, rechargement à chaud, faits clés
-├── state.py              événements traités, curseurs
+├── rules_engine/         moteur de règles déclaratif (YAML → alertes), voir rules/README.md
+├── rules.py              accès au moteur, rechargement à chaud, faits clés
+├── state.py              événements traités, curseurs (PostgreSQL, schéma monitor)
+├── db.py                 pool PostgreSQL par schéma, création idempotente
 ├── prompts.py            prompts système (figés)
 ├── config.py
 └── cli.py

@@ -4,7 +4,7 @@ from typing import Annotated, Any, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, field_validator, model_validator
 
-from rules_engine.operators import OPERATORS
+from tms_agent.rules_engine.operators import OPERATORS
 
 # Racines de champs disponibles dans le contexte d'évaluation (voir context.py).
 CONTEXT_ROOTS = ("mission", "vehicle", "deviation", "eta", "driver", "event")

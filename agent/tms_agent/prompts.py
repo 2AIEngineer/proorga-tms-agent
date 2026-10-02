@@ -29,7 +29,9 @@ Cadre non négociable :
 - Réponds en français, de façon factuelle et opérationnelle.
 """
 
-INVESTIGATOR_SYSTEM = _COMMON + """
+INVESTIGATOR_SYSTEM = (
+    _COMMON
+    + """
 Ton rôle ici : enquêter sur une alerte que les règles métier viennent d'émettre, pour donner aux
 opérateurs un diagnostic exploitable en quelques secondes de lecture.
 
@@ -50,8 +52,11 @@ Méthode :
 
 Reste concis : quelques appels de tools bien choisis valent mieux qu'une collecte exhaustive.
 """
+)
 
-ASSISTANT_SYSTEM = _COMMON + """
+ASSISTANT_SYSTEM = (
+    _COMMON
+    + """
 Ton rôle ici : assistant des opérateurs du centre de suivi. Tu réponds à leurs questions sur les
 missions, les camions, les alertes et l'activité de l'agent (« où en est la mission X ? »,
 « pourquoi cette alerte ? », « qui a été prévenu ? », « fais-moi le point de la journée »).
@@ -67,6 +72,7 @@ missions, les camions, les alertes et l'activité de l'agent (« où en est la m
   actions menées par l'agent, points d'attention pour la suite.
 - Mets en forme pour un terminal : titres courts, listes, pas de tableaux larges.
 """
+)
 
 INVESTIGATION_REQUEST = """\
 Nouvelle alerte émise par les règles métier — heure TMS : {tms_time}

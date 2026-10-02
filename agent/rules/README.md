@@ -29,13 +29,13 @@ Le moteur reste **pur** : il ne lit pas le TMS, n'écrit rien et n'envoie aucune
 ## Démarrage
 
 ```bash
-cd rules_engine
+cd agent
 uv sync
 uv run rules-engine validate rules/                 # valide les règles
 uv run rules-engine test rules/ scenarios/          # exécute les scénarios sur données figées
 uv run rules-engine eval rules/ examples/snapshot_deviation.json            # règles déclenchées (JSON)
 uv run rules-engine eval rules/ examples/snapshot_deviation.json --explain  # détail condition par condition
-uv run pytest
+uv run pytest tests/rules_engine
 ```
 
 Démonstration contre le TMS simulé (lecture seule, polling) :
@@ -48,7 +48,7 @@ uv run python examples/watch_tms.py --api http://127.0.0.1:8000 --interval 2
 ## Utilisation depuis l'orchestrateur
 
 ```python
-from rules_engine import RuleEngine, build_context, apply_deduplication
+from tms_agent.rules_engine import RuleEngine, build_context, apply_deduplication
 
 engine = RuleEngine.from_path("rules/")          # à recharger quand les fichiers changent
 
@@ -187,11 +187,11 @@ Pour les règles d'événement, ajouter `new_events: [...]` au cas. `uv run rule
 ## Structure
 
 ```
-rules_engine/
-├── rules/                 règles du POC (les 6 du Document 3)
+agent/
+├── rules/                 règles du POC (les 6 du Document 3) — ce README
 ├── scenarios/             cas de test métier sur données figées
 ├── examples/              instantané d'exemple, boucle de surveillance contre le TMS
-├── rules_engine/
+├── tms_agent/rules_engine/
 │   ├── models.py          format des règles (validation stricte)
 │   ├── operators.py       opérateurs
 │   ├── context.py         contexte depuis les ressources TMS + champs dérivés
@@ -201,7 +201,7 @@ rules_engine/
 │   ├── scenarios.py       exécution des scénarios
 │   ├── templating.py      gabarits {{ champ }} (sans code exécutable)
 │   └── cli.py             rules-engine validate | eval | test
-└── tests/
+└── tests/rules_engine/
 ```
 
 > Si un `PYTHONPATH` global (ROS, par exemple) injecte des plugins pytest, lancer `env -u PYTHONPATH uv run pytest`.

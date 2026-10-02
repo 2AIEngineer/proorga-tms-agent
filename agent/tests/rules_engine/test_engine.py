@@ -1,17 +1,17 @@
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from rules_engine import (
+from tms_agent.rules_engine import (
     InMemoryAlertHistory,
     RuleEngine,
     apply_deduplication,
     build_context,
     parse_rules,
 )
-from rules_engine.scenarios import run_scenarios
-from rules_engine.templating import render
+from tms_agent.rules_engine.scenarios import run_scenarios
+from tms_agent.rules_engine.templating import render
 
-ROOT = Path(__file__).parent.parent
+ROOT = Path(__file__).parent.parent.parent
 NOW = datetime(2025, 11, 4, 9, 42, tzinfo=UTC)
 
 MISSION = {

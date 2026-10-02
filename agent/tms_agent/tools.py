@@ -20,10 +20,10 @@ from typing import Any, Literal
 from mcp.types import Tool
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from rules_engine import enrich_event
 from tms_agent.llm import INVALID_ARGUMENTS
 from tms_agent.mcp_gateway import McpGateway, McpToolError, McpUnavailable
 from tms_agent.rules import RuleBook, snapshot_context
+from tms_agent.rules_engine import enrich_event
 
 log = logging.getLogger(__name__)
 

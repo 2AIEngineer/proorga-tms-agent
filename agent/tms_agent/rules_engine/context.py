@@ -8,7 +8,7 @@ mission, vehicle, deviation, eta, events, driver. Le contexte ajoute des champs 
 from datetime import datetime
 from typing import Any
 
-from rules_engine.operators import haversine_km, minutes_since, to_datetime, to_point
+from tms_agent.rules_engine.operators import haversine_km, minutes_since, to_datetime, to_point
 
 # Point cible d'un événement d'arrivée.
 _TARGET_OF_EVENT = {"arrived_pickup": "origin", "arrived_delivery": "destination"}

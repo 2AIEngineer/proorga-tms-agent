@@ -92,7 +92,8 @@ class MonitoringAgent:
         self.settings = settings
         self.gateway = gateway
         self.llm = llm or create_llm_client(settings)
-        self.state_store = state_store or AgentStateStore(settings.state_db_path)
+        self._owns_state_store = state_store is None
+        self.state_store = state_store or AgentStateStore.from_settings(settings)
         self.rulebook = rulebook or RuleBook(settings.rules_dir)
         self.emit: EventSink = on_event or (lambda kind, data: None)
         self.investigator: Investigator | None = None
@@ -518,6 +519,8 @@ class MonitoringAgent:
         for task in list(self._investigations.values()):
             task.cancel()
         await asyncio.gather(*self._investigations.values(), return_exceptions=True)
+        if self._owns_state_store:
+            self.state_store.close()
 
     async def report(self, state: CycleState) -> dict[str, Any]:
         summary = {

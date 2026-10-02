@@ -48,7 +48,7 @@ def cmd_tools(_args) -> int:
 
 
 def cmd_alerts(args) -> int:
-    store = AgentStore(get_settings().agent_db_path)
+    store = AgentStore.from_settings(get_settings())
     alerts = store.list_alerts(status=args.status, limit=args.limit)
     if args.json:
         print(json.dumps(alerts, ensure_ascii=False, indent=2, default=str))
@@ -69,7 +69,7 @@ def cmd_reset_db(args) -> int:
     if not args.yes:
         print("Ajouter -y pour confirmer la suppression des alertes, notifications, appels et journal.", file=sys.stderr)
         return 1
-    AgentStore(get_settings().agent_db_path).reset()
+    AgentStore.from_settings(get_settings()).reset()
     print("Base de l'agent vidée.")
     return 0
 

@@ -15,14 +15,13 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from rules_engine.operators import to_datetime
-
-from rules_engine import (
+from tms_agent.rules_engine import (
     InMemoryAlertHistory,
     RuleEngine,
     apply_deduplication,
     build_context,
 )
+from tms_agent.rules_engine.operators import to_datetime
 
 ROOT = Path(__file__).resolve().parent.parent
 

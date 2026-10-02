@@ -1,7 +1,7 @@
 """Assistant opérateur : questions en langage naturel, rapports de situation.
 
-Graphe ReAct avec checkpointer LangGraph : chaque fil de conversation (`thread_id`) garde son
-historique. L'assistant lit le TMS et la base de l'agent via MCP ; il peut, sur demande explicite,
+Graphe ReAct avec checkpointer LangGraph adossé à PostgreSQL (schéma `assistant`) : chaque fil
+de conversation (`thread_id`) garde son historique, y compris après un redémarrage. L'assistant lit le TMS et la base de l'agent via MCP ; il peut, sur demande explicite,
 clore une alerte, appeler un chauffeur (garde-fous du serveur) ou journaliser une décision, mais
 n'émet jamais d'alerte ni de notification hors des règles métier.
 """
@@ -10,9 +10,13 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from psycopg.rows import dict_row
+from psycopg_pool import AsyncConnectionPool
 
 from tms_agent.config import AgentSettings
+from tms_agent.db import open_pool
 from tms_agent.graph.react import (
     build_react_graph,
     initial_state,
@@ -48,6 +52,7 @@ class OperatorAssistant:
         llm: LlmClient,
         rulebook: RuleBook,
         on_event=None,
+        checkpointer: BaseCheckpointSaver | None = None,
     ):
         self.settings = settings
         self.gateway = gateway
@@ -57,6 +62,8 @@ class OperatorAssistant:
         self.thread_id = f"ops-{uuid.uuid4().hex[:8]}"
         self._graph = None
         self._seen_calls = 0
+        self._checkpointer = checkpointer
+        self._pool: AsyncConnectionPool | None = None
 
     async def _ensure_graph(self):
         if self._graph is None:
@@ -80,9 +87,32 @@ class OperatorAssistant:
                 effort=self.settings.llm_effort_chat,
                 max_turns=self.settings.llm_max_turns,
                 on_event=self.on_event,
-                checkpointer=InMemorySaver(),
+                checkpointer=await self._ensure_checkpointer(),
             )
         return self._graph
+
+    async def _ensure_checkpointer(self) -> BaseCheckpointSaver:
+        if self._checkpointer is None:
+            schema = self.settings.assistant_db_schema
+            open_pool(self.settings.database_url, schema, "", max_size=1).close()  # crée le schéma
+            self._pool = AsyncConnectionPool(
+                self.settings.database_url,
+                min_size=1,
+                max_size=2,
+                kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row,
+                        "options": f"-c search_path={schema}"},
+                open=False,
+            )
+            await self._pool.open(wait=True, timeout=10)
+            saver = AsyncPostgresSaver(self._pool)
+            await saver.setup()
+            self._checkpointer = saver
+        return self._checkpointer
+
+    async def close(self) -> None:
+        if self._pool is not None:
+            await self._pool.close()
+            self._pool = None
 
     async def ask(self, question: str) -> Answer:
         graph = await self._ensure_graph()
