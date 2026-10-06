@@ -9,24 +9,28 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 AGENT_DIR = Path(__file__).resolve().parent.parent
-ORCHESTRATOR_DIR = AGENT_DIR.parent
 
 Effort = Literal["low", "medium", "high", "xhigh", "max"]
 Severity = Literal["low", "medium", "high", "critical"]
 
 
 class AgentSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=AGENT_DIR / ".env", env_prefix="AGENT_", extra="ignore",
-                                      populate_by_name=True)
+    model_config = SettingsConfigDict(
+        env_file=AGENT_DIR / ".env",
+        env_prefix="AGENT_",
+        extra="ignore",
+        populate_by_name=True,
+    )
 
     # --- Accès au TMS : exclusivement via le serveur MCP ---------------------------------
+    # stdio : serveur lancé en sous-processus depuis le même environnement (espace de travail uv) ;
+    # http  : déploiement, le serveur MCP tourne dans son propre conteneur
     mcp_transport: Literal["stdio", "http"] = "stdio"
-    mcp_server_dir: Path = ORCHESTRATOR_DIR / "mcp_server"  # stdio : projet lancé avec `uv run tms-mcp serve`
     mcp_url: str = "http://127.0.0.1:8002/mcp"  # http
     mcp_call_timeout_s: float = 45.0
 
     # --- Règles métier ----------------------------------------------------------------------
-    rules_dir: Path = AGENT_DIR / "rules"
+    rules_dir: Path = AGENT_DIR / "domain" / "rules"
 
     # --- Base PostgreSQL (variables POSTGRES_*, sans préfixe : partagées avec le serveur MCP) ---
     postgres_db: str = Field("tms_agent_db", validation_alias="POSTGRES_DB")
@@ -35,7 +39,9 @@ class AgentSettings(BaseSettings):
     postgres_host: str = Field("localhost", validation_alias="POSTGRES_HOST")
     postgres_port: int = Field(5432, validation_alias="POSTGRES_PORT")
     state_db_schema: str = "monitor"  # événements traités, curseurs de la boucle
-    assistant_db_schema: str = "assistant"  # conversations de l'assistant (checkpoints LangGraph)
+    assistant_db_schema: str = (
+        "assistant"  # conversations de l'assistant (checkpoints LangGraph)
+    )
 
     # --- Boucle de surveillance ---------------------------------------------------------------
     poll_interval_s: float = 10.0
@@ -53,15 +59,21 @@ class AgentSettings(BaseSettings):
     llm_timeout_s: float = 300.0
     llm_max_retries: int = 3
     llm_show_thinking: bool = False  # afficher le raisonnement du modèle (mode -v)
-    llm_reprobe_every_cycles: int = 6  # LLM indisponible (serveur arrêté) : nouvel essai tous les N cycles
+    llm_reprobe_every_cycles: int = (
+        6  # LLM indisponible (serveur arrêté) : nouvel essai tous les N cycles
+    )
 
     # Local (vLLM : scripts/run_vllm_container.sh)
     local_base_url: str = "http://localhost:8001/v1"
     local_model: str = "Qwen/Qwen3.5-2B"
     local_api_key: str = "EMPTY"
-    local_max_tokens: int = 2048  # réponse ; le reste de la fenêtre sert à la conversation
+    local_max_tokens: int = (
+        2048  # réponse ; le reste de la fenêtre sert à la conversation
+    )
     local_temperature: float = 0.3
-    local_thinking: Literal["auto", "on", "off"] = "auto"  # auto : raisonnement si effort >= high
+    local_thinking: Literal["auto", "on", "off"] = (
+        "auto"  # auto : raisonnement si effort >= high
+    )
     local_context_window: int | None = None  # None : lu sur /v1/models (max_model_len)
 
     # Anthropic

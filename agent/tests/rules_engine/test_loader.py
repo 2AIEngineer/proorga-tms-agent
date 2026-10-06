@@ -5,7 +5,7 @@ import pytest
 
 from tms_agent.rules_engine import RuleLoadError, load_rules, parse_rules
 
-RULES_DIR = Path(__file__).parent.parent.parent / "rules"
+RULES_DIR = Path(__file__).parent.parent.parent / "domain" / "rules"
 
 VALID = """
 id: sample

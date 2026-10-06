@@ -73,7 +73,7 @@ def run_cycle(
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--api", default="http://127.0.0.1:8000")
-    parser.add_argument("--rules", default=str(ROOT / "rules"))
+    parser.add_argument("--rules", default=str(ROOT / "domain" / "rules"))
     parser.add_argument(
         "--interval", type=float, default=5.0, help="Secondes entre deux cycles."
     )

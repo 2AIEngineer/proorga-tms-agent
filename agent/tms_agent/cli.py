@@ -22,7 +22,7 @@ from tms_agent.graph.monitor import MonitoringAgent
 from tms_agent.llm import LlmUnavailable, create_llm_client
 from tms_agent.mcp_gateway import McpGateway, McpUnavailable
 from tms_agent.prompts import SHIFT_REPORT_REQUEST
-from tms_agent.rules import RuleBook
+from tms_agent.rules_engine import RuleBook
 from tms_agent.state import AgentStateStore
 from tms_agent.tools import (
     COMPACT_ASSISTANT_TOOLS,

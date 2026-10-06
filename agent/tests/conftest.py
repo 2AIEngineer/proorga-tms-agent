@@ -10,7 +10,7 @@ from tms_agent.config import AGENT_DIR, AgentSettings
 from tms_agent.graph.monitor import MonitoringAgent
 from tms_agent.llm import LlmError, ModelTurn
 from tms_agent.mcp_gateway import McpGateway
-from tms_agent.rules import RuleBook
+from tms_agent.rules_engine import RuleBook
 from tms_mcp.config import Settings as ServerSettings
 from tms_mcp.server import create_server
 from tms_mcp.store import AgentStore
@@ -52,7 +52,7 @@ def settings(database, schemas) -> AgentSettings:
         **database,
         state_db_schema=schemas("monitor"),
         assistant_db_schema=schemas("assistant"),
-        rules_dir=AGENT_DIR / "rules",
+        rules_dir=AGENT_DIR / "domain" / "rules",
         llm_max_turns=6,
         investigate_min_severity="medium",
         background_investigations=False,

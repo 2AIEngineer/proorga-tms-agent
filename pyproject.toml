@@ -1,0 +1,23 @@
+# Espace de travail uv : un seul environnement virtuel (.venv) et un seul uv.lock pour
+# l'agent et le serveur MCP, qui restent deux paquets distincts (un conteneur chacun).
+#   développement : uv sync                                  (les deux paquets + outils de test)
+#   conteneur     : uv sync --frozen --no-dev --package tms-agent        (ou tms-mcp-server)
+[project]
+name = "tms-orchestrator"
+version = "0.1.0"
+description = "Espace de travail de l'orchestrateur de suivi des missions (agent IA + serveur MCP)."
+requires-python = ">=3.11"
+dependencies = ["tms-agent", "tms-mcp-server"]
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-asyncio>=0.24"]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["agent", "mcp_server"]
+
+[tool.uv.sources]
+tms-agent = { workspace = true }
+tms-mcp-server = { workspace = true }

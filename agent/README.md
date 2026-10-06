@@ -1,6 +1,6 @@
 # Agent IA de suivi des missions
 
-Agent de surveillance des missions de transport. Il fait le travail d'un agent de suivi d'exploitation : il lit le TMS **uniquement via le serveur MCP**, applique les **règles métier YAML** (`tms_agent.rules_engine`, règles dans [`rules/`](rules/README.md)), émet les alertes, notifie les bons niveaux de management, puis fait **enquêter un LLM** sur chaque nouvelle alerte pour produire un diagnostic exploitable. Un **assistant opérateur** répond aux questions en langage naturel.
+Agent de surveillance des missions de transport. Il fait le travail d'un agent de suivi d'exploitation : il lit le TMS **uniquement via le serveur MCP**, applique les **règles métier YAML** (`tms_agent.rules_engine`, règles dans [`domain/rules/`](domain/rules/README.md)), émet les alertes, notifie les bons niveaux de management, puis fait **enquêter un LLM** sur chaque nouvelle alerte pour produire un diagnostic exploitable. Un **assistant opérateur** répond aux questions en langage naturel.
 
 Le LLM est **local par défaut** (vLLM, Qwen3.5-2B en développement) : aucune donnée ne quitte l'infrastructure. Le fournisseur Anthropic (Claude, cloud) reste disponible si la politique de données l'autorise.
 
@@ -128,14 +128,14 @@ Le parser de tools dépend du modèle : `hermes` pour Qwen3, `qwen3_coder` pour 
 Prérequis : TMS lancé (`docs/CONTEXT.md`), `uv`, PostgreSQL (base `tms_agent_db`, identifiants dans `agent/.env` et `mcp_server/.env` ; les schémas et tables sont créés au démarrage), vLLM lancé (`scripts/run_vllm_container.sh`, vérification : `scripts/run_vllm_heathy.sh`).
 
 ```bash
+uv sync                                      # à la racine ai_agent/ : environnement unique (agent + serveur MCP)
 cd agent
-uv sync
 cp .env.example .env                         # optionnel
 
 uv run tms-agent rules                       # règles actives
-uv run rules-engine test rules/ scenarios/   # scénarios métier des règles (voir rules/README.md)
+uv run rules-engine test domain/rules domain/scenarios  # cas de test métier des règles (voir domain/rules/README.md)
 uv run tms-agent tools                       # profil d'outils et tools vus par le LLM
-uv run tms-agent watch                       # surveillance continue (lance le serveur MCP en stdio)
+uv run tms-agent watch                       # surveillance continue (lance le serveur MCP en stdio, même environnement)
 uv run tms-agent watch --interval 3 -v       # plus fréquent, avec le détail des enquêtes
 uv run tms-agent --no-llm watch              # mode déterministe
 uv run tms-agent cycle                       # un seul cycle (attend les enquêtes), bilan JSON
@@ -187,8 +187,9 @@ Variables `AGENT_*` (ou `agent/.env`) — voir `.env.example`. Les principales :
 ## Structure
 
 ```
-rules/                    règles métier YAML (rechargées à chaud)
-scenarios/                cas de test métier des règles
+domain/                   connaissance métier, éditable par l'équipe métier
+├── rules/                règles métier YAML (rechargées à chaud)
+└── scenarios/            cas de test métier des règles
 examples/                 instantané d'exemple, démo du moteur contre le TMS
 tms_agent/
 ├── graph/
@@ -201,9 +202,16 @@ tms_agent/
 │   ├── openai_compat.py  fournisseur local (vLLM…) : traduction, budget de contexte
 │   └── anthropic_client.py fournisseur Anthropic (Claude)
 ├── mcp_gateway.py        client MCP : stdio / HTTP / mémoire, reconnexion, timeouts
-├── tools.py              tools MCP dynamiques, profil compact, tools locaux, validation
-├── rules_engine/         moteur de règles déclaratif (YAML → alertes), voir rules/README.md
-├── rules.py              accès au moteur, rechargement à chaud, faits clés
+├── tools/                outils exposés au LLM
+│   ├── toolbox.py        tools MCP dynamiques + tools locaux, filtrage par mode, exécution
+│   ├── profiles.py       tools réservés aux règles, sous-ensembles du profil compact
+│   ├── formatting.py     résultats épurés, schémas et descriptions allégés
+│   ├── rules.py          tools locaux sur les règles (liste, explication sur une mission)
+│   ├── assessment.py     évaluation d'enquête : schémas, validation, submit_assessment
+│   └── base.py           LocalTool, ToolInputError
+├── rules_engine/         moteur de règles déclaratif (YAML → alertes), voir domain/rules/README.md
+│   ├── rulebook.py       jeu de règles actif, rechargement à chaud
+│   └── snapshot.py       instantané MCP → contexte d'évaluation, faits clés pour le LLM
 ├── state.py              événements traités, curseurs (PostgreSQL, schéma monitor)
 ├── db.py                 pool PostgreSQL par schéma, création idempotente
 ├── prompts.py            prompts système (figés)

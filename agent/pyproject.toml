@@ -17,9 +17,9 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-# Dépendance de test uniquement (tests de bout en bout en mémoire). En production, l'agent
-# lance le serveur MCP comme sous-processus (stdio) ou s'y connecte en HTTP.
-tms-mcp-server = { path = "../mcp_server", editable = true }
+# Membre du même espace de travail uv (voir ../pyproject.toml). Dépendance de test uniquement
+# (tests de bout en bout en mémoire) : en production, l'agent se connecte au serveur MCP en HTTP.
+tms-mcp-server = { workspace = true }
 
 [project.scripts]
 tms-agent = "tms_agent.cli:main"

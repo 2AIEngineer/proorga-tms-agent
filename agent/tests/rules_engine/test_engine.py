@@ -33,7 +33,7 @@ DEVIATION = {"current_offset_km": 6.4, "current_offset_since": "2025-11-04T09:15
 
 
 def engine() -> RuleEngine:
-    return RuleEngine.from_path(ROOT / "rules")
+    return RuleEngine.from_path(ROOT / "domain" / "rules")
 
 
 def context(**overrides):
@@ -141,7 +141,7 @@ def test_deduplication_and_cooldown():
 
 
 def test_business_scenarios_all_pass():
-    results = run_scenarios(engine(), ROOT / "scenarios")
+    results = run_scenarios(engine(), ROOT / "domain" / "scenarios")
     assert len(results) >= 20
     failed = [(r.file, r.name, r.expected, r.actual, r.error) for r in results if not r.passed]
     assert failed == []

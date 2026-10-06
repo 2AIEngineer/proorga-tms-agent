@@ -29,12 +29,12 @@ Le moteur reste **pur** : il ne lit pas le TMS, n'écrit rien et n'envoie aucune
 ## Démarrage
 
 ```bash
+uv sync                                             # à la racine ai_agent/
 cd agent
-uv sync
-uv run rules-engine validate rules/                 # valide les règles
-uv run rules-engine test rules/ scenarios/          # exécute les scénarios sur données figées
-uv run rules-engine eval rules/ examples/snapshot_deviation.json            # règles déclenchées (JSON)
-uv run rules-engine eval rules/ examples/snapshot_deviation.json --explain  # détail condition par condition
+uv run rules-engine validate domain/rules           # valide les règles
+uv run rules-engine test domain/rules domain/scenarios  # exécute les scénarios sur données figées
+uv run rules-engine eval domain/rules examples/snapshot_deviation.json            # règles déclenchées (JSON)
+uv run rules-engine eval domain/rules examples/snapshot_deviation.json --explain  # détail condition par condition
 uv run pytest tests/rules_engine
 ```
 
@@ -50,7 +50,7 @@ uv run python examples/watch_tms.py --api http://127.0.0.1:8000 --interval 2
 ```python
 from tms_agent.rules_engine import RuleEngine, build_context, apply_deduplication
 
-engine = RuleEngine.from_path("rules/")          # à recharger quand les fichiers changent
+engine = RuleEngine.from_path("domain/rules/")          # à recharger quand les fichiers changent
 
 # 1. Lire le TMS (tools MCP) : réponses JSON brutes du contrat pivot
 context = build_context(
@@ -93,7 +93,7 @@ L'orchestrateur l'adosse à sa base. `InMemoryAlertHistory` sert aux tests.
 
 ## Écrire une règle (équipe métier)
 
-Une règle par fichier dans `rules/`. Plusieurs règles par fichier sont aussi possibles, en liste YAML ou séparées par `---`.
+Une règle par fichier dans `domain/rules/`. Plusieurs règles par fichier sont aussi possibles, en liste YAML ou séparées par `---`.
 
 ```yaml
 id: deviation_persistent          # identifiant stable : minuscules, chiffres, _
@@ -168,7 +168,7 @@ Une règle qui lit un champ `event.*` est **évaluée pour chaque nouvel événe
 
 ## Tester une règle sur des données figées
 
-Les fichiers de `scenarios/` décrivent des situations et les règles attendues. Ils sont lisibles par l'équipe métier :
+Les fichiers de `domain/scenarios/` décrivent des situations et les règles attendues. Ils sont lisibles par l'équipe métier :
 
 ```yaml
 name: Règle eta_delay — retard ETA significatif
@@ -182,14 +182,15 @@ cases:
       triggered: [eta_delay]        # liste EXACTE des règles déclenchées
 ```
 
-Pour les règles d'événement, ajouter `new_events: [...]` au cas. `uv run rules-engine test rules/ scenarios/` exécute tous les cas (code de sortie 1 en cas d'échec). C'est aussi le point de départ pour calibrer les seuils après les entretiens avec les agents de suivi.
+Pour les règles d'événement, ajouter `new_events: [...]` au cas. `uv run rules-engine test domain/rules domain/scenarios` exécute tous les cas (code de sortie 1 en cas d'échec). C'est aussi le point de départ pour calibrer les seuils après les entretiens avec les agents de suivi.
 
 ## Structure
 
 ```
 agent/
-├── rules/                 règles du POC (les 6 du Document 3) — ce README
-├── scenarios/             cas de test métier sur données figées
+├── domain/
+│   ├── rules/             règles du POC (les 6 du Document 3) — ce README
+│   └── scenarios/         cas de test métier sur données figées
 ├── examples/              instantané d'exemple, boucle de surveillance contre le TMS
 ├── tms_agent/rules_engine/
 │   ├── models.py          format des règles (validation stricte)
@@ -199,6 +200,8 @@ agent/
 │   ├── dedup.py           déduplication / cooldown (protocole AlertHistory)
 │   ├── loader.py          chargement YAML, erreurs lisibles
 │   ├── scenarios.py       exécution des scénarios
+│   ├── rulebook.py        jeu de règles actif, rechargement à chaud (utilisé par l'agent)
+│   ├── snapshot.py        instantané MCP → contexte d'évaluation, faits clés
 │   ├── templating.py      gabarits {{ champ }} (sans code exécutable)
 │   └── cli.py             rules-engine validate | eval | test
 └── tests/rules_engine/

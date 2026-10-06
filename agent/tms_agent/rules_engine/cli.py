@@ -1,8 +1,8 @@
 """Ligne de commande : valider, évaluer et tester des règles.
 
-    rules-engine validate rules/
-    rules-engine eval rules/ snapshot.json [--now 2025-11-04T09:42:00Z] [--explain]
-    rules-engine test rules/ scenarios/
+    rules-engine validate domain/rules
+    rules-engine eval domain/rules snapshot.json [--now 2025-11-04T09:42:00Z] [--explain]
+    rules-engine test domain/rules domain/scenarios
 """
 
 import argparse

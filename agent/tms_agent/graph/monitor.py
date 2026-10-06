@@ -25,7 +25,7 @@ cycle suivant.
 import asyncio
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any, TypedDict
 
@@ -35,13 +35,12 @@ from tms_agent.config import AgentSettings
 from tms_agent.graph.investigator import Investigator
 from tms_agent.llm import LlmClient, create_llm_client
 from tms_agent.mcp_gateway import McpGateway, McpToolError, McpUnavailable
-from tms_agent.rules import RuleBook, mission_facts, snapshot_context
+from tms_agent.rules_engine import RuleBook, mission_facts, snapshot_context
 from tms_agent.state import AgentStateStore
 from tms_agent.tools import (
     COMPACT_INVESTIGATION_TOOLS,
     RULE_DRIVEN_TOOLS,
     build_toolbox,
-    gather_limited,
     submit_assessment_tool,
     use_compact_toolset,
 )
@@ -49,6 +48,18 @@ from tms_agent.tools import (
 log = logging.getLogger(__name__)
 
 SEVERITY_RANK = {"low": 0, "medium": 1, "high": 2, "critical": 3}
+
+
+async def gather_limited(coros: list[Awaitable[Any]], limit: int) -> list[Any]:
+    """`asyncio.gather` avec concurrence bornée ; les exceptions sont renvoyées, pas levées."""
+    sem = asyncio.Semaphore(max(1, limit))
+
+    async def run(c):
+        async with sem:
+            return await c
+
+    return await asyncio.gather(*(run(c) for c in coros), return_exceptions=True)
+
 
 EventSink = Callable[[str, dict[str, Any]], None]
 

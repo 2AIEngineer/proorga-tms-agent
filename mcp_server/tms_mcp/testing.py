@@ -4,7 +4,7 @@ import copy
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from tms_mcp.connector.base import JSON, TmsNotFound, TmsUnavailable
+from tms_mcp.connector.base import TmsNotFound, TmsUnavailable
 from tms_mcp.connector.rest import parse_datetime
 
 T0 = datetime(2025, 11, 4, 8, 0, tzinfo=UTC)
@@ -105,7 +105,7 @@ class FakeTmsConnector:
 
     # --- Contrat ---------------------------------------------------------------------
 
-    async def health(self) -> JSON:
+    async def health(self) -> dict[str, Any]:
         self._check("health")
         return {"status": "ok", "version": "fake", "time": self.now_iso(), "simulation": {"running": True, "speed": 1}}
 
@@ -113,7 +113,7 @@ class FakeTmsConnector:
         self._check("now")
         return self.now_dt
 
-    async def list_missions(self, *, status=None, vehicle_id=None, driver_id=None, updated_since=None) -> list[JSON]:
+    async def list_missions(self, *, status=None, vehicle_id=None, driver_id=None, updated_since=None) -> list[dict[str, Any]]:
         self._check("list_missions")
         out = []
         for m in self.missions.values():
@@ -131,54 +131,54 @@ class FakeTmsConnector:
             raise TmsNotFound(f"TMS 404 Mission introuvable : {mission_id!r}", status=404)
         return self.missions[mission_id]
 
-    async def get_mission(self, mission_id: str) -> JSON:
+    async def get_mission(self, mission_id: str) -> dict[str, Any]:
         self._check("get_mission")
         m = copy.deepcopy(self._mission(mission_id))
         m["events"].sort(key=lambda e: e["occurred_at"])
         return m
 
-    async def list_mission_events(self, mission_id: str, *, since=None, types=None) -> list[JSON]:
+    async def list_mission_events(self, mission_id: str, *, since=None, types=None) -> list[dict[str, Any]]:
         self._check("list_mission_events")
         events = sorted(self._mission(mission_id)["events"], key=lambda e: e["occurred_at"])
         return copy.deepcopy([e for e in events if (not since or parse_datetime(e["occurred_at"]) > since)
                               and (not types or e["type"] in types)])
 
-    async def get_mission_route(self, mission_id: str) -> JSON:
+    async def get_mission_route(self, mission_id: str) -> dict[str, Any]:
         self._check("get_mission_route")
         m = self._mission(mission_id)
         return {"id": m["planned_route_id"], "mission_id": mission_id, "polyline": "abc", "distance_km": 87.0, "duration_min": 75.0,
                 "waypoints": [{"lat": m["origin"]["lat"], "lon": m["origin"]["lon"], "sequence": 0},
                               {"lat": m["destination"]["lat"], "lon": m["destination"]["lon"], "sequence": 1}]}
 
-    async def get_mission_deviation(self, mission_id: str) -> JSON:
+    async def get_mission_deviation(self, mission_id: str) -> dict[str, Any]:
         self._check("get_mission_deviation")
         self._mission(mission_id)
         return copy.deepcopy(self.deviations[mission_id])
 
-    async def get_mission_eta(self, mission_id: str) -> JSON:
+    async def get_mission_eta(self, mission_id: str) -> dict[str, Any]:
         self._check("get_mission_eta")
         self._mission(mission_id)
         return copy.deepcopy(self.etas[mission_id])
 
-    async def list_vehicles(self, *, status=None, fleet_id=None) -> list[JSON]:
+    async def list_vehicles(self, *, status=None, fleet_id=None) -> list[dict[str, Any]]:
         self._check("list_vehicles")
         return [copy.deepcopy(v) for v in self.vehicles.values() if not status or v["status"] == status]
 
-    async def get_vehicle(self, vehicle_id: str) -> JSON:
+    async def get_vehicle(self, vehicle_id: str) -> dict[str, Any]:
         self._check("get_vehicle")
         if vehicle_id not in self.vehicles:
             raise TmsNotFound(f"TMS 404 Véhicule introuvable : {vehicle_id!r}", status=404)
         return copy.deepcopy(self.vehicles[vehicle_id])
 
-    async def get_vehicle_position(self, vehicle_id: str) -> JSON:
+    async def get_vehicle_position(self, vehicle_id: str) -> dict[str, Any]:
         vehicle = await self.get_vehicle(vehicle_id)
         return {"vehicle_id": vehicle_id, **vehicle["current_position"]}
 
-    async def list_vehicle_positions(self, vehicle_id: str, *, since=None, until=None, mission_id=None) -> list[JSON]:
+    async def list_vehicle_positions(self, vehicle_id: str, *, since=None, until=None, mission_id=None) -> list[dict[str, Any]]:
         vehicle = await self.get_vehicle(vehicle_id)
         return [{**vehicle["current_position"], "mission_id": vehicle["current_mission_id"]}]
 
-    async def get_driver(self, driver_id: str) -> JSON:
+    async def get_driver(self, driver_id: str) -> dict[str, Any]:
         self._check("get_driver")
         user = self.users.get(driver_id)
         if not user or user["role"] != "driver":
@@ -186,18 +186,18 @@ class FakeTmsConnector:
         current = next((m["id"] for m in self.missions.values() if m["driver_id"] == driver_id and m["status"] == "in_progress"), None)
         return {**user, "status": "on_mission" if current else "available", "current_mission_id": current}
 
-    async def get_user(self, user_id: str) -> JSON:
+    async def get_user(self, user_id: str) -> dict[str, Any]:
         self._check("get_user")
         if user_id not in self.users:
             raise TmsNotFound(f"TMS 404 Utilisateur introuvable : {user_id!r}", status=404)
         return dict(self.users[user_id])
 
-    async def list_users(self, *, role=None, management_level=None) -> list[JSON]:
+    async def list_users(self, *, role=None, management_level=None) -> list[dict[str, Any]]:
         self._check("list_users")
         return [dict(u) for u in self.users.values()
                 if (not role or u["role"] == role) and (not management_level or u["management_level"] == management_level)]
 
-    async def list_role_users(self, role: str) -> list[JSON]:
+    async def list_role_users(self, role: str) -> list[dict[str, Any]]:
         return await self.list_users(role=role)
 
     async def aclose(self) -> None:

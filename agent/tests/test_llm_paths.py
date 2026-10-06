@@ -5,7 +5,7 @@ import json
 from tms_agent.graph.assistant import OperatorAssistant
 from tms_agent.llm import LlmError
 from tms_agent.mcp_gateway import McpGateway
-from tms_agent.rules import RuleBook
+from tms_agent.rules_engine import RuleBook
 from tms_mcp.config import Settings as ServerSettings
 from tms_mcp.server import create_server
 

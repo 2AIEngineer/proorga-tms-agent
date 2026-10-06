@@ -7,7 +7,7 @@ import openai
 import pytest
 from tms_agent.llm import INVALID_ARGUMENTS, LlmError
 from tms_agent.llm.openai_compat import OpenAICompatibleClient, fit_context, to_openai_messages
-from tms_agent.rules import mission_facts
+from tms_agent.rules_engine import mission_facts
 from tms_agent.tools import COMPACT_INVESTIGATION_TOOLS, ToolInputError, validate_assessment
 from tms_mcp.testing import FakeTmsConnector, make_mission
 

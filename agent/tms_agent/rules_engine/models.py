@@ -1,8 +1,16 @@
 """Format des règles (Document 3 — Format du moteur de règles)."""
 
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Discriminator,
+    Field,
+    Tag,
+    field_validator,
+    model_validator,
+)
 
 from tms_agent.rules_engine.operators import OPERATORS
 
@@ -33,14 +41,18 @@ class Leaf(_Strict):
     def _known_root(cls, v: str) -> str:
         root = v.split(".", 1)[0]
         if root not in CONTEXT_ROOTS or "." not in v:
-            raise ValueError(f"champ {v!r} invalide : doit commencer par {', '.join(r + '.' for r in CONTEXT_ROOTS)}")
+            raise ValueError(
+                f"champ {v!r} invalide : doit commencer par {', '.join(r + '.' for r in CONTEXT_ROOTS)}"
+            )
         return v
 
     @model_validator(mode="after")
     def _known_operator(self):
         op = OPERATORS.get(self.operator)
         if op is None:
-            raise ValueError(f"opérateur inconnu {self.operator!r} (disponibles : {', '.join(sorted(OPERATORS))})")
+            raise ValueError(
+                f"opérateur inconnu {self.operator!r} (disponibles : {', '.join(sorted(OPERATORS))})"
+            )
         op.validate(self.value)
         return self
 
@@ -69,12 +81,10 @@ def _condition_kind(v: Any) -> str:
 
 
 Condition = Annotated[
-    Union[
-        Annotated[All, Tag("all")],
-        Annotated[AnyOf, Tag("any")],
-        Annotated[Not, Tag("not")],
-        Annotated[Leaf, Tag("leaf")],
-    ],
+    Annotated[All, Tag("all")]
+    | Annotated[AnyOf, Tag("any")]
+    | Annotated[Not, Tag("not")]
+    | Annotated[Leaf, Tag("leaf")],
     Discriminator(_condition_kind),
 ]
 
@@ -115,7 +125,9 @@ class Recipient(_Strict):
 
 class AlertSpec(_Strict):
     title: str
-    message: str | None = Field(None, description="Gabarit {{ champ }} ; défaut : titre + référence de mission.")
+    message: str | None = Field(
+        None, description="Gabarit {{ champ }} ; défaut : titre + référence de mission."
+    )
     deduplication_key: str = "{{ rule.id }}:{{ mission.id }}"
     cooldown_minutes: Annotated[int, Field(ge=0)] = 0
 

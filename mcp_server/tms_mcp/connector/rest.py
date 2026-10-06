@@ -16,7 +16,7 @@ from typing import Any
 
 import httpx
 
-from tms_mcp.connector.base import JSON, TmsError, TmsNotFound, TmsUnavailable
+from tms_mcp.connector.base import TmsError, TmsNotFound, TmsUnavailable
 
 log = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ class RestTmsConnector:
         self,
         base_url: str,
         *,
-        timeout_s: float = 10.0,
+        timeout_s: float = 15.0,
         max_retries: int = 3,
         max_pages: int = 20,
         cache_ttl_s: float = 60.0,
@@ -86,27 +86,36 @@ class RestTmsConnector:
     # --- HTTP -------------------------------------------------------------------------
 
     async def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
-        clean = {k: v for k, v in (params or {}).items() if v not in (None, [], "")}
+        cleaned_params = {
+            k: v for k, v in (params or {}).items() if v not in (None, [], "")
+        }
         last_exc: Exception | None = None
         for attempt in range(self.max_retries + 1):
             try:
-                resp = await self._client.get(path, params=clean)
-            except httpx.TransportError as exc:  # connexion, timeout, DNS...
+                resp = await self._client.get(path, params=cleaned_params)
+            except httpx.TransportError as exc:
                 last_exc = exc
             else:
                 if resp.status_code < 400:
                     return resp.json()
                 if resp.status_code not in _RETRYABLE_STATUS:
-                    raise self._problem(resp)
-                last_exc = self._problem(resp)
+                    raise self._error(resp)
+                last_exc = self._error(resp)
             if attempt < self.max_retries:
                 delay = min(0.25 * 2**attempt, 4.0) + random.uniform(0, 0.2)
-                log.warning("TMS GET %s échoué (%s), nouvelle tentative dans %.2fs", path, last_exc, delay)
+                log.warning(
+                    "TMS GET %s échoué (%s), nouvelle tentative dans %.2fs",
+                    path,
+                    last_exc,
+                    delay,
+                )
                 await asyncio.sleep(delay)
-        raise TmsUnavailable(f"TMS injoignable pour GET {path} : {last_exc}") from last_exc
+        raise TmsUnavailable(
+            f"TMS injoignable pour GET {path} : {last_exc}"
+        ) from last_exc
 
     @staticmethod
-    def _problem(resp: httpx.Response) -> TmsError:
+    def _error(resp: httpx.Response) -> TmsError:
         try:
             body = resp.json()
         except ValueError:
@@ -117,10 +126,12 @@ class RestTmsConnector:
         cls = TmsNotFound if resp.status_code == 404 else TmsError
         return cls(message, status=resp.status_code, detail=body)
 
-    async def _get_all(self, path: str, params: dict[str, Any] | None = None, limit: int = 200) -> list[JSON]:
+    async def _get_all(
+        self, path: str, params: dict[str, Any] | None = None, limit: int = 200
+    ) -> list[dict[str, Any]]:
         """Suit la pagination par curseur (`pagination.cursor`)."""
         params = {**(params or {}), "limit": limit}
-        items: list[JSON] = []
+        items: list[dict[str, Any]] = []
         for _ in range(self.max_pages):
             page = await self._get(path, params)
             items.extend(page.get("data", []))
@@ -133,7 +144,7 @@ class RestTmsConnector:
 
     # --- Meta -------------------------------------------------------------------------
 
-    async def health(self) -> JSON:
+    async def health(self) -> dict[str, Any]:
         return await self._get("/health")
 
     async def now(self) -> datetime:
@@ -145,7 +156,9 @@ class RestTmsConnector:
 
     # --- Missions ---------------------------------------------------------------------
 
-    async def list_missions(self, *, status=None, vehicle_id=None, driver_id=None, updated_since=None) -> list[JSON]:
+    async def list_missions(
+        self, *, status=None, vehicle_id=None, driver_id=None, updated_since=None
+    ) -> list[dict[str, Any]]:
         return await self._get_all(
             "/missions",
             {
@@ -156,13 +169,17 @@ class RestTmsConnector:
             },
         )
 
-    async def get_mission(self, mission_id: str) -> JSON:
+    async def get_mission(self, mission_id: str) -> dict[str, Any]:
         return await self._get(f"/missions/{mission_id}")
 
-    async def list_mission_events(self, mission_id: str, *, since=None, types=None) -> list[JSON]:
-        return await self._get_all(f"/missions/{mission_id}/events", {"since": _iso(since), "type": types})
+    async def list_mission_events(
+        self, mission_id: str, *, since=None, types=None
+    ) -> list[dict[str, Any]]:
+        return await self._get_all(
+            f"/missions/{mission_id}/events", {"since": _iso(since), "type": types}
+        )
 
-    async def get_mission_route(self, mission_id: str) -> JSON:
+    async def get_mission_route(self, mission_id: str) -> dict[str, Any]:
         key = f"route:{mission_id}"
         if (cached := self._cache.get(key)) is not None:
             return cached
@@ -170,24 +187,30 @@ class RestTmsConnector:
         self._cache.put(key, route)
         return route
 
-    async def get_mission_deviation(self, mission_id: str) -> JSON:
+    async def get_mission_deviation(self, mission_id: str) -> dict[str, Any]:
         return await self._get(f"/missions/{mission_id}/deviation")
 
-    async def get_mission_eta(self, mission_id: str) -> JSON:
+    async def get_mission_eta(self, mission_id: str) -> dict[str, Any]:
         return await self._get(f"/missions/{mission_id}/eta")
 
     # --- Véhicules --------------------------------------------------------------------
 
-    async def list_vehicles(self, *, status=None, fleet_id=None) -> list[JSON]:
-        return await self._get_all("/vehicles", {"status": status, "fleet_id": fleet_id})
+    async def list_vehicles(
+        self, *, status=None, fleet_id=None
+    ) -> list[dict[str, Any]]:
+        return await self._get_all(
+            "/vehicles", {"status": status, "fleet_id": fleet_id}
+        )
 
-    async def get_vehicle(self, vehicle_id: str) -> JSON:
+    async def get_vehicle(self, vehicle_id: str) -> dict[str, Any]:
         return await self._get(f"/vehicles/{vehicle_id}")
 
-    async def get_vehicle_position(self, vehicle_id: str) -> JSON:
+    async def get_vehicle_position(self, vehicle_id: str) -> dict[str, Any]:
         return await self._get(f"/vehicles/{vehicle_id}/position")
 
-    async def list_vehicle_positions(self, vehicle_id: str, *, since=None, until=None, mission_id=None) -> list[JSON]:
+    async def list_vehicle_positions(
+        self, vehicle_id: str, *, since=None, until=None, mission_id=None
+    ) -> list[dict[str, Any]]:
         return await self._get_all(
             f"/vehicles/{vehicle_id}/positions",
             {"since": _iso(since), "until": _iso(until), "mission_id": mission_id},
@@ -196,16 +219,20 @@ class RestTmsConnector:
 
     # --- Utilisateurs -----------------------------------------------------------------
 
-    async def get_driver(self, driver_id: str) -> JSON:
+    async def get_driver(self, driver_id: str) -> dict[str, Any]:
         return await self._get(f"/drivers/{driver_id}")
 
-    async def get_user(self, user_id: str) -> JSON:
+    async def get_user(self, user_id: str) -> dict[str, Any]:
         return await self._get(f"/users/{user_id}")
 
-    async def list_users(self, *, role=None, management_level=None) -> list[JSON]:
-        return await self._get_all("/users", {"role": role, "management_level": management_level})
+    async def list_users(
+        self, *, role=None, management_level=None
+    ) -> list[dict[str, Any]]:
+        return await self._get_all(
+            "/users", {"role": role, "management_level": management_level}
+        )
 
-    async def list_role_users(self, role: str) -> list[JSON]:
+    async def list_role_users(self, role: str) -> list[dict[str, Any]]:
         key = f"role:{role}"
         if (cached := self._cache.get(key)) is not None:
             return cached

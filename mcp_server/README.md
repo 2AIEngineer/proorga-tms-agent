@@ -10,8 +10,8 @@ Chaque tool porte une description sémantique (intention métier + moment d'usag
 ## Démarrage
 
 ```bash
+uv sync                                      # à la racine ai_agent/ : environnement unique (agent + serveur MCP)
 cd mcp_server
-uv sync
 uv run tms-mcp tools                         # catalogue des tools
 uv run tms-mcp serve                         # stdio (c'est ainsi que l'agent le lance)
 uv run tms-mcp serve --transport http        # Streamable HTTP : http://127.0.0.1:8002/mcp

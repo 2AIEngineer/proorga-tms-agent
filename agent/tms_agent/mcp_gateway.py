@@ -11,6 +11,7 @@ import asyncio
 import json
 import logging
 import os
+import sys
 from contextlib import AsyncExitStack
 from typing import Any, Self
 
@@ -60,18 +61,9 @@ class McpGateway:
             target: Any = settings.mcp_url
         else:
             target = StdioServerParameters(
-                command="uv",
-                args=[
-                    "run",
-                    "--quiet",
-                    "--directory",
-                    str(settings.mcp_server_dir),
-                    "tms-mcp",
-                    "--log-level",
-                    "WARNING",
-                    "serve",
-                ],
-                env={k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"},
+                command=sys.executable,
+                args=["-m", "tms_mcp.cli", "--log-level", "WARNING", "serve"],
+                env=dict(os.environ),
             )
         return cls(target, call_timeout_s=settings.mcp_call_timeout_s)
 

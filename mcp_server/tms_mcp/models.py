@@ -9,14 +9,14 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class _Open(BaseModel):
+class OpenBaseModel(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
 # --- Contrat pivot du TMS -------------------------------------------------------------
 
 
-class Point(_Open):
+class Point(OpenBaseModel):
     lat: float
     lon: float
 
@@ -25,7 +25,7 @@ class Place(Point):
     label: str | None = None
 
 
-class MissionEvent(_Open):
+class MissionEvent(OpenBaseModel):
     id: str
     mission_id: str
     type: str
@@ -35,7 +35,7 @@ class MissionEvent(_Open):
     source: str | None = None
 
 
-class Mission(_Open):
+class Mission(OpenBaseModel):
     id: str
     reference: str | None = None
     vehicle_id: str | None = None
@@ -57,7 +57,7 @@ class MissionDetail(Mission):
     events: list[MissionEvent] = Field(default_factory=list)
 
 
-class Position(_Open):
+class Position(OpenBaseModel):
     lat: float
     lon: float
     heading: float | None = None
@@ -65,7 +65,7 @@ class Position(_Open):
     recorded_at: str | None = None
 
 
-class Vehicle(_Open):
+class Vehicle(OpenBaseModel):
     id: str
     plate: str | None = None
     fleet_id: str | None = None
@@ -75,7 +75,7 @@ class Vehicle(_Open):
     current_mission_id: str | None = None
 
 
-class Deviation(_Open):
+class Deviation(OpenBaseModel):
     mission_id: str
     current_offset_km: float | None = None
     current_offset_since: str | None = None
@@ -85,7 +85,7 @@ class Deviation(_Open):
     computed_at: str | None = None
 
 
-class Eta(_Open):
+class Eta(OpenBaseModel):
     mission_id: str
     planned_delivery_at: str | None = None
     current_eta: str | None = None
@@ -94,7 +94,7 @@ class Eta(_Open):
     computed_at: str | None = None
 
 
-class User(_Open):
+class User(OpenBaseModel):
     id: str
     name: str | None = None
     role: str | None = None
@@ -112,12 +112,17 @@ class Driver(User):
 
 
 class TmsTime(BaseModel):
-    time: str = Field(description="Heure courante du TMS (ISO 8601 UTC), référence pour `now` et `updated_since`.")
+    time: str = Field(
+        description="Heure courante du TMS (ISO 8601 UTC), référence pour `now` et `updated_since`."
+    )
     simulation: dict[str, Any] | None = None
 
 
 class MissionList(BaseModel):
-    tms_time: str | None = Field(None, description="Heure du TMS au moment de la lecture (à réutiliser comme `updated_since`).")
+    tms_time: str | None = Field(
+        None,
+        description="Heure du TMS au moment de la lecture (à réutiliser comme `updated_since`).",
+    )
     count: int
     missions: list[Mission]
 
@@ -165,14 +170,15 @@ class MissionSnapshot(BaseModel):
     eta: Eta | None = None
     driver: Driver | None = None
     errors: dict[str, str] = Field(
-        default_factory=dict, description="Ressources illisibles (la mission reste exploitable partiellement)."
+        default_factory=dict,
+        description="Ressources illisibles (la mission reste exploitable partiellement).",
     )
 
 
 # --- Base de l'agent ------------------------------------------------------------------
 
 
-class Alert(_Open):
+class Alert(OpenBaseModel):
     id: str
     rule_id: str
     rule_version: int
@@ -191,7 +197,7 @@ class Alert(_Open):
     analysis: dict[str, Any] | None = None
 
 
-class Notification(_Open):
+class Notification(OpenBaseModel):
     id: str
     alert_id: str
     recipient_user_id: str | None = None
@@ -208,9 +214,13 @@ class Notification(_Open):
 
 
 class AlertCreated(BaseModel):
-    created: bool = Field(description="False si la déduplication ou le cooldown ont empêché l'émission.")
+    created: bool = Field(
+        description="False si la déduplication ou le cooldown ont empêché l'émission."
+    )
     reason: str | None = Field(None, description="Motif de non-émission.")
-    alert: Alert = Field(description="Alerte créée, ou alerte existante qui a bloqué l'émission.")
+    alert: Alert = Field(
+        description="Alerte créée, ou alerte existante qui a bloqué l'émission."
+    )
 
 
 class AlertList(BaseModel):
@@ -231,7 +241,7 @@ class NotificationList(BaseModel):
     notifications: list[Notification]
 
 
-class AgentLogEntry(_Open):
+class AgentLogEntry(OpenBaseModel):
     id: str
     mission_id: str | None = None
     alert_id: str | None = None
@@ -245,7 +255,7 @@ class AgentLogList(BaseModel):
     entries: list[AgentLogEntry]
 
 
-class DriverCall(_Open):
+class DriverCall(OpenBaseModel):
     id: str
     mission_id: str
     alert_id: str | None = None
@@ -259,7 +269,9 @@ class DriverCall(_Open):
 
 
 class DriverCallResult(BaseModel):
-    placed: bool = Field(description="False si un appel récent existe déjà (renvoyé dans `call`).")
+    placed: bool = Field(
+        description="False si un appel récent existe déjà (renvoyé dans `call`)."
+    )
     note: str
     call: DriverCall
 
@@ -272,12 +284,22 @@ class MissionIndicator(BaseModel):
     route: str | None = None
     vehicle_status: str | None = None
     speed_kmh: float | None = None
-    delay_minutes: float | None = Field(None, description="Positif = retard, négatif = avance.")
-    delivery_status: str | None = Field(None, description="« retard de X min », « avance de X min » ou « à l'heure ».")
-    offset_km: float | None = Field(None, description="Écart à l'itinéraire (null avant le départ).")
+    delay_minutes: float | None = Field(
+        None, description="Positif = retard, négatif = avance."
+    )
+    delivery_status: str | None = Field(
+        None, description="« retard de X min », « avance de X min » ou « à l'heure »."
+    )
+    offset_km: float | None = Field(
+        None, description="Écart à l'itinéraire (null avant le départ)."
+    )
     offset_minutes: float | None = None
-    open_alerts: list[str] = Field(default_factory=list, description="Règles des alertes ouvertes sur la mission.")
-    unavailable: list[str] = Field(default_factory=list, description="Indicateurs illisibles dans le TMS.")
+    open_alerts: list[str] = Field(
+        default_factory=list, description="Règles des alertes ouvertes sur la mission."
+    )
+    unavailable: list[str] = Field(
+        default_factory=list, description="Indicateurs illisibles dans le TMS."
+    )
 
 
 class OverviewOut(BaseModel):

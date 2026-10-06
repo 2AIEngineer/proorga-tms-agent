@@ -26,7 +26,7 @@ from tms_agent.graph.react import (
 from tms_agent.llm import LlmClient, LlmUnavailable
 from tms_agent.mcp_gateway import McpGateway
 from tms_agent.prompts import ASSISTANT_SYSTEM
-from tms_agent.rules import RuleBook
+from tms_agent.rules_engine import RuleBook
 from tms_agent.tools import (
     COMPACT_ASSISTANT_TOOLS,
     RULE_DRIVEN_TOOLS,
